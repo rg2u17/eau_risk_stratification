@@ -34,6 +34,6 @@ Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` 
 ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` and ```pmhx_ascertainment_with_dates.R```, which need to be within the same working directory as the .Rmd when running this. 
 
 ### All Kidney stone codes
-It should be noted that ```recurrence_identification_redone.R``` is not within the main .Rmd script. This is deliberate, as this script has a less stringent defintion of 'recurrence' than ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` i.e. any stone code -> any stone code, rather than colic/intervention -> colic/intervention. However, the main benefit of this script is that it identifies all participants with kidney stones in UKB including those with generic codes for kidney stones (which are excluded in ```recurrence_identification_colic_to_colic_multiple_occurrences.R```).
+It should be noted that ```recurrence_identification_redone.R``` is not called within the main .Rmd script. This is deliberate, as this script has a less stringent defintion of 'recurrence' than ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` i.e. any stone code -> any stone code, rather than colic/intervention -> colic/intervention. However, the main benefit of this script is that it identifies all participants with kidney stones in UKB including those with generic codes for kidney stones (which are excluded in ```recurrence_identification_colic_to_colic_multiple_occurrences.R```).
 
 ## All of Us
