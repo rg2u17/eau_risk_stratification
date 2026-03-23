@@ -1,4 +1,4 @@
-# EAU Risk Stratification for People with Kidney Stones in UK Biobank and All of Us
+# Examination of Prognostic Accuracy of EAU Risk Stratification for People with Kidney Stones in UK Biobank and All of Us
 ## UK Biobank
 ### Data required 
 <br>
