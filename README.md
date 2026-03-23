@@ -2,7 +2,9 @@
 ## UK Biobank
 ### Data required 
 <br>
+
 **Within UKB the following datasets will need to be created in order to run the .Rmd file:**
+
 <br>
 ```diet_data_updated__participant.csv```
 This contains: participant_id, month_of_birth and year_of_birth
