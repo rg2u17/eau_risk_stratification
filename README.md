@@ -30,6 +30,7 @@ We suggest creating these in Cohort Browser, and then using Table Exporter to cr
 
 
 ### Analysis
-Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` to replicate the analyses
+Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` to replicate the analyses. There are two dependent R scripts:
+```recurrence_identification_colic_to_colic_multiple_occurrences.R``` and ```pmhx_ascertainment_with_dates.R```, which need to be within the same working directory as the .Rmd when running this. 
 
 ## All of Us
