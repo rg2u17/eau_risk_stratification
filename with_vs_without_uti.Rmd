@@ -1,0 +1,905 @@
+---
+title: "Comparison of EAU Risk Stratification With vs Without rUTIs"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: show
+---
+
+# Libraries
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(janitor)
+library(forcats)
+library(anytime)
+library(pROC)
+library(gt)
+library(gtExtras)
+library(grid)
+library(gridExtra)
+library(survminer)
+library(survival)
+library(MatchIt)
+```
+
+# Data Loading
+
+## Diet data
+
+```{r load-diet}
+diet_data_participant <- read.csv("diet_data_updated__participant.csv",
+                                  na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+```
+
+## Clinical coding data
+
+### Read codes
+
+```{r load-clinical}
+recurrence_gp_data <- read.csv("gp_data_gp_clinical.csv",
+                               na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+
+recurrence_data_hesin <- read.csv("data_hesin.csv", na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+
+recurrence_data_hesin_diag <- read.csv("data_hesin_diag.csv",
+                                       na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+
+recurrence_data_hesin_critical <- read.csv("data_hesin_critical.csv",
+                                           na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+```
+
+### OPCS
+
+```{r}
+recurrence_data_hesin_oper <- read.csv("data_hesin_oper.csv",
+                                       na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+```
+
+
+### ICD codes
+
+```{r load-icd}
+icd10_upto196 <- read.csv("icd10_upto196_participant.csv",
+                           na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+
+icd10_morethan196 <- read.csv("icd10_morethan196_participant.csv",
+                               na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+
+icd10_dates2 <- cbind(icd10_upto196,
+                      subset(icd10_morethan196, select = -participant_id)) %>%
+  drop_na(diagnoses_icd10)
+
+icd10_data_extra <- read.csv("icd10_extra_participant.csv",
+                              na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names() %>%
+  subset(select = -c(age_at_recruitment, diagnoses_icd10))
+
+icd9_data <- read.csv("icd9_participant.csv",
+                       na.strings = c("", " ", ".", "NA", "N/A", "NULL")) %>%
+  as_tibble() %>% clean_names()
+```
+
+# Data Processing
+
+## Identify recurrence events
+
+Creates: `time_to_first_recurrence1`, `overall_data_cut_off_5`, `overall_follow_up`
+
+```{r identify-recurrence}
+source("recurrence_identification_colic_to_colic_multiple_occurrences.R")
+```
+
+## Ascertain past medical history
+
+Creates: `pmhx_cleaned` (including UTI flag)
+
+```{r ascertain-pmhx}
+source("pmhx_ascertainment_with_dates.R")
+```
+
+# Derived Variables
+
+## Create time-to-recurrence dataset
+
+```{r time-to-recurrence}
+time_to_recurrence_2 <- time_to_first_recurrence1 %>%
+  mutate(
+    time_0 = first_date,
+    recurrence = ifelse(pheno > 0, "rsf", "ssf"),
+    time_to_recurrence_1 = time_diff_years
+  )
+```
+
+## Create high-risk classification (with initial presentation)
+
+```{r high-risk-classification}
+high_risk <- time_to_recurrence_2 %>%
+  subset(select = c(participant_id, recurrence, time_to_recurrence_1, initial_presentation)) %>%
+  left_join(pmhx_cleaned, by = "participant_id") %>%
+  left_join(diet_data_participant %>%
+              mutate(dob = as.Date(paste("1", month_of_birth, year_of_birth, sep = " - "),
+                                   format = "%d - %m - %Y")) %>%
+              dplyr::select(participant_id, dob),
+            by = "participant_id") %>%
+  left_join(time_to_first_recurrence1 %>% dplyr::select(participant_id, date_of_first_code),
+            by = "participant_id") %>%
+  mutate(
+    age_at_first_stone = (date_of_first_code - dob) / 365.25,
+    high_risk = case_when(
+      age_at_first_stone < 25 ~ "high_risk",
+      (metabolic_disorder + hyperpth + transplant_immunosuppression + pkd + msk +
+         bowel_surgery + ibd + malabsorption + sarcoidosis + spinal_injury + cf +
+         pujo + metabolic_syndrome + horshoe_kidney + eating_disorder + ileal_conduit +
+         single_kidney + vur + ureteric_stricture + metabolic_syndrome) > 1 ~ "high_risk",
+      TRUE ~ "low_risk"
+    )
+  ) %>%
+  dplyr::select(participant_id, initial_presentation, high_risk)
+```
+
+# Overall Recurrence Rates
+
+## Kaplan Meier
+```{r}
+demographics_km1 <- time_to_recurrence_2 %>% subset(select = c(recurrence, time_to_recurrence_1)) %>% drop_na(recurrence) %>% drop_na(time_to_recurrence_1)
+demographics_km1$recurrence <- ifelse(demographics_km1$recurrence == "rsf", 1, 0)
+demographics_km1$recurrence <- as.integer(demographics_km1$recurrence)
+km_fit <- surv_fit(Surv(time_to_recurrence_1, as.integer(recurrence)) ~ 1, data =
+                     demographics_km1) 
+ggsurvplot(km_fit,
+           data = demographics_km1,
+           risk.table = TRUE,
+           surv.median.line = "hv",
+           conf.int = TRUE,
+           tables.theme = theme_cleantable(),
+           break.time.by = 1,
+           xlab = "Time (years)",
+           xlim = c(0,10),
+           title = "Time to First Recurrence",
+           censor = FALSE)
+```
+
+## Yearly Cut-offs Recurrence Rates
+```{r}
+as_tibble(cbind(
+  "Yearly Recurrence" =  c(2, 5, 10),
+  "Recurrence Rates" = 1-round(summary(km_fit, times = c(2, 5, 10))$surv, digits = 2),
+  "95% CI" = paste0(
+    1 - round(summary(km_fit, times = c(2, 5, 10))$upper, digits = 2),
+    "-",
+    1- round(summary(km_fit, times = c(2, 5, 10))$lower, digits = 2)
+  )
+)) %>%
+  gt() %>%
+  gt_theme_espn()
+```
+
+
+# With vs Without UTI - Data Preparation
+
+## Age at first stone
+
+```{r age-first-stone}
+age_at_first_stone_df_2 <- time_to_recurrence_2 %>%
+  subset(select = c(participant_id, recurrence, time_to_recurrence_1)) %>%
+  left_join(pmhx_cleaned, by = "participant_id") %>%
+  left_join(diet_data_participant %>%
+              mutate(dob = as.Date(paste("1", month_of_birth, year_of_birth, sep = " - "),
+                                   format = "%d - %m - %Y")) %>%
+              dplyr::select(participant_id, dob),
+            by = "participant_id") %>%
+  left_join(time_to_first_recurrence1 %>% dplyr::select(participant_id, date_of_first_code),
+            by = "participant_id") %>%
+  mutate(age_at_first_stone = (date_of_first_code - dob) / 365.25) %>%
+  dplyr::select(participant_id, age_at_first_stone)
+```
+
+## Risk stratification without UTI
+
+```{r risk-without-uti}
+high_risk_without_uti <- time_to_first_recurrence1 %>%
+  select(participant_id) %>%
+  distinct(participant_id) %>%
+  left_join(pmhx_cleaned, by = "participant_id") %>%
+  dplyr::select(-uti) %>%
+  mutate(across(c(metabolic_disorder, metabolic_syndrome, hyperpth, immunosuppression,
+                  transplant_immunosuppression, pkd, msk,
+                  bowel_surgery, ibd, malabsorption, sarcoidosis, spinal_injury,
+                  cf, pujo, diverticulum, ureteric_stricture, vur, single_kidney,
+                  ileal_conduit, eating_disorder, horshoe_kidney),
+                ~replace_na(., 0))) %>%
+  mutate(
+    high_risk = if_else(
+      (metabolic_disorder + metabolic_syndrome +
+         hyperpth + immunosuppression + transplant_immunosuppression +
+         pkd + msk + bowel_surgery + ibd + malabsorption +
+         sarcoidosis + spinal_injury + cf + pujo + diverticulum + ureteric_stricture +
+         vur + single_kidney + ileal_conduit + eating_disorder + horshoe_kidney) < 1,
+      "low_risk",
+      "high_risk")) %>%
+  select(participant_id, high_risk) %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone),
+            by = "participant_id") %>%
+  mutate(high_risk = case_when(age_at_first_stone < 25 ~ "high_risk", TRUE ~ high_risk)) %>%
+  group_by(participant_id) %>%
+  summarise(high_risk = if_else(any(high_risk == "high_risk"), "high_risk", "low_risk"),
+            .groups = "drop")
+
+table(high_risk_without_uti$high_risk)
+```
+
+## Risk stratification with UTI
+
+```{r risk-with-uti}
+high_risk_with_uti <- time_to_first_recurrence1 %>%
+  select(participant_id) %>%
+  distinct(participant_id) %>%
+  left_join(pmhx_cleaned, by = "participant_id") %>%
+  mutate(across(c(metabolic_disorder, metabolic_syndrome, hyperpth, uti, immunosuppression,
+                  transplant_immunosuppression, pkd, msk,
+                  bowel_surgery, ibd, malabsorption, sarcoidosis, spinal_injury,
+                  cf, pujo, diverticulum, ureteric_stricture, vur, single_kidney,
+                  ileal_conduit, eating_disorder, horshoe_kidney),
+                ~replace_na(., 0))) %>%
+  mutate(
+    high_risk = if_else(
+      (metabolic_disorder + metabolic_syndrome + uti +
+         hyperpth + immunosuppression + transplant_immunosuppression +
+         pkd + msk + bowel_surgery + ibd + malabsorption +
+         sarcoidosis + spinal_injury + cf + pujo + diverticulum + ureteric_stricture +
+         vur + single_kidney + ileal_conduit + eating_disorder + horshoe_kidney) < 1,
+      "low_risk",
+      "high_risk")) %>%
+  select(participant_id, high_risk) %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone),
+            by = "participant_id") %>%
+  mutate(high_risk = case_when(age_at_first_stone < 25 ~ "high_risk", TRUE ~ high_risk)) %>%
+  group_by(participant_id) %>%
+  summarise(high_risk = if_else(any(high_risk == "high_risk"), "high_risk", "low_risk"),
+            .groups = "drop")
+
+table(high_risk_with_uti$high_risk)
+```
+
+## Assemble base datasets
+
+```{r assemble-datasets}
+### Unmatched: Without UTI
+base_data_without_uti <- overall_data_cut_off_5 %>%
+  left_join(high_risk_without_uti, by = "participant_id") %>%
+  left_join(high_risk %>% dplyr::select(participant_id, initial_presentation), by = "participant_id") %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone), by = "participant_id") %>%
+  dplyr::select(participant_id, count_diff, first_date, last_date, high_risk, initial_presentation, age_at_first_stone) %>%
+  mutate(recurrence = if_else(count_diff == 0, 0, 1), .keep = "all")
+
+### Unmatched: With UTI
+base_data_with_uti <- overall_data_cut_off_5 %>%
+  left_join(high_risk_with_uti, by = "participant_id") %>%
+  left_join(high_risk %>% dplyr::select(participant_id, initial_presentation), by = "participant_id") %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone), by = "participant_id") %>%
+  dplyr::select(participant_id, count_diff, first_date, last_date, high_risk, initial_presentation, age_at_first_stone) %>%
+  mutate(recurrence = if_else(count_diff == 0, 0, 1), .keep = "all")
+
+### KM datasets
+base_data_without_uti_for_km <- time_to_first_recurrence1 %>%
+  left_join(high_risk_without_uti, by = "participant_id") %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone),
+            by = "participant_id") %>%
+  dplyr::select(participant_id, pheno, high_risk, initial_presentation, age_at_first_stone, time_diff_years) %>%
+  mutate(recurrence = pheno,
+         age_at_first_stone = as.numeric(age_at_first_stone),
+         time_to_recurrence_1 = time_diff_years,
+         .keep = "unused") %>%
+  drop_na(time_to_recurrence_1)
+
+base_data_with_uti_for_km <- time_to_first_recurrence1 %>%
+  left_join(high_risk_with_uti, by = "participant_id") %>%
+  left_join(age_at_first_stone_df_2 %>% dplyr::select(participant_id, age_at_first_stone),
+            by = "participant_id") %>%
+  dplyr::select(participant_id, pheno, high_risk, initial_presentation, age_at_first_stone, time_diff_years) %>%
+  mutate(recurrence = pheno,
+         age_at_first_stone = as.numeric(age_at_first_stone),
+         time_to_recurrence_1 = time_diff_years,
+         .keep = "unused") %>%
+  drop_na(time_to_recurrence_1)
+```
+
+## Tabulate data 
+
+### Without UTI
+```{r}
+base_data_without_uti_for_km_summary <- base_data_without_uti_for_km %>%
+    left_join(pmhx_cleaned, by = "participant_id") %>%
+  dplyr::select(-c(time_to_recurrence_1, participant_id)) %>%
+  mutate(
+    early_onset = case_when(
+      age_at_first_stone <25 ~ "Yes",
+      TRUE ~ "No"
+    ),
+    .keep = "all"
+  ) %>%
+  tbl_summary(statistic = list(
+    all_continuous() ~ "{mean} ± {sd}",
+    all_categorical() ~
+      "{n} ({p}%)"
+  ))
+
+base_data_without_uti_for_km_summary
+```
+
+
+### With UTI
+```{r}
+base_data_with_uti_for_km_summary <- base_data_with_uti_for_km %>%
+  dplyr::select(high_risk) %>%
+  tbl_summary(statistic = list(
+    all_continuous() ~ "{mean} ± {sd}",
+    all_categorical() ~
+      "{n} ({p}%)"
+  ))
+
+base_data_with_uti_for_km_summary
+```
+
+
+# Analysis Parameters and Matched Datasets
+
+```{r analysis-params}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs \u22651 events", "0 vs \u22652 events", "0 vs \u22653 events")
+colors <- c("#1b9e77", "#d95f02", "#7570b3")
+```
+
+## Propensity-score matched datasets
+
+```{r matched-datasets}
+### Matched: Without UTI
+base_data_match_without_uti <- base_data_without_uti %>%
+  mutate(
+    high_risk_binary = if_else(high_risk == "high_risk", 1L, 0L),
+    age_at_first_stone = as.numeric(age_at_first_stone),
+    initial_presentation = as.factor(initial_presentation)
+  ) %>%
+  drop_na(high_risk_binary, age_at_first_stone, initial_presentation)
+
+m <- matchit(high_risk_binary ~ age_at_first_stone + initial_presentation,
+             data = base_data_match_without_uti,
+             method = "nearest")
+base_data_match_without_uti <- match.data(m)
+
+### Matched: With UTI
+base_data_match_with_uti <- base_data_with_uti %>%
+  mutate(
+    high_risk_binary = if_else(high_risk == "high_risk", 1L, 0L),
+    age_at_first_stone = as.numeric(age_at_first_stone),
+    initial_presentation = as.factor(initial_presentation)
+  ) %>%
+  drop_na(high_risk_binary, age_at_first_stone, initial_presentation)
+
+m <- matchit(high_risk_binary ~ age_at_first_stone + initial_presentation,
+             data = base_data_match_with_uti,
+             method = "nearest")
+base_data_match_with_uti <- match.data(m)
+```
+
+# Helper Functions
+
+```{r helper-functions}
+prep_roc <- function(base_data, thresh) {
+  base_data %>%
+    mutate(
+      actual = case_when(
+        count_diff >= thresh ~ 1,
+        count_diff == 0 ~ 0,
+        TRUE ~ NA_integer_
+      ),
+      predicted = if_else(high_risk == "high_risk", 1, 0)
+    ) %>%
+    drop_na()
+}
+
+extract_metrics <- function(roc_obj, dataset_name, label, p_text) {
+  auc_val <- as.numeric(auc(roc_obj))
+  auc_ci  <- ci.auc(roc_obj)
+
+  coords_best <- coords(roc_obj, "best", ret = c("sensitivity", "specificity"),
+                        best.method = "youden")
+
+  sens_ci <- ci.se(roc_obj, specificities = coords_best$specificity)
+  spec_ci <- ci.sp(roc_obj, sensitivities = coords_best$sensitivity)
+
+  data.frame(
+    Dataset = dataset_name,
+    Comparison = label,
+    AUC_CI = sprintf("%.2f (%.2f\u2013%.2f)", auc_val, auc_ci[1], auc_ci[3]),
+    Sensitivity = sprintf("%.2f (%.2f\u2013%.2f)",
+                          coords_best$sensitivity, sens_ci[, 1], sens_ci[, 3]),
+    Specificity = sprintf("%.2f (%.2f\u2013%.2f)",
+                          coords_best$specificity, spec_ci[, 1], spec_ci[, 3]),
+    DeLong_p = p_text
+  )
+}
+
+generate_roc_plot <- function(base_data, plot_title) {
+  roc_list <- list()
+  auc_table_df <- data.frame(Comparison = character(), AUC_CI = character())
+  ci_combined_df <- data.frame()
+
+  for (i in seq_along(thresholds)) {
+    thresh <- thresholds[i]
+    label <- labels[i]
+
+    roc_data <- prep_roc(base_data, thresh)
+    roc_obj <- roc(roc_data$actual, roc_data$predicted, quiet = TRUE)
+
+    roc_list[[i]] <- list(roc_obj = roc_obj, color = colors[i], label = label)
+
+    auc_val <- as.numeric(auc(roc_obj))
+    auc_ci  <- ci.auc(roc_obj)
+
+    auc_table_df <- rbind(
+      auc_table_df,
+      data.frame(
+        Comparison = label,
+        AUC_CI = sprintf("%.2f (%.2f\u2013%.2f)", auc_val, auc_ci[1], auc_ci[3])
+      )
+    )
+
+    ci_se <- ci.se(roc_obj, specificities = seq(0, 1, length.out = 100))
+    ci_combined_df <- rbind(ci_combined_df, data.frame(
+      fpr = 1 - as.numeric(rownames(ci_se)),
+      tpr_lower = ci_se[, 1],
+      tpr_upper = ci_se[, 3],
+      Comparison = label
+    ))
+  }
+
+  roc_combined_df <- do.call(rbind, lapply(seq_along(roc_list), function(i) {
+    roc_obj <- roc_list[[i]]$roc_obj
+    data.frame(
+      fpr = 1 - roc_obj$specificities,
+      tpr = roc_obj$sensitivities,
+      Comparison = roc_list[[i]]$label
+    )
+  }))
+
+  auc_table <- tableGrob(auc_table_df, rows = NULL, theme = ttheme_minimal(base_size = 9))
+  auc_table_boxed <- grobTree(
+    rectGrob(gp = gpar(col = "black", fill = "white", lwd = 1)),
+    auc_table
+  )
+
+  ggplot() +
+    geom_ribbon(
+      data = ci_combined_df,
+      aes(x = fpr, ymin = tpr_lower, ymax = tpr_upper, fill = Comparison),
+      alpha = 0.2
+    ) +
+    geom_line(
+      data = roc_combined_df,
+      aes(x = fpr, y = tpr, color = Comparison),
+      linewidth = 1
+    ) +
+    geom_abline(linetype = "dashed", alpha = 0.6) +
+    labs(x = "False Positive Rate", y = "True Positive Rate", title = plot_title) +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values = colors) +
+    coord_equal() +
+    theme_minimal(base_size = 12) +
+    annotation_custom(
+      grob = auc_table_boxed,
+      xmin = 0.55, xmax = 1,
+      ymin = 0.05, ymax = 0.3
+    ) + theme_bw()
+}
+
+generate_faceted_roc_plot <- function(base_data, plot_title) {
+  presentations <- unique(base_data$initial_presentation)
+
+  roc_combined_df <- data.frame()
+  ci_combined_df  <- data.frame()
+  auc_table_df    <- data.frame()
+
+  for (pres in presentations) {
+    pres_data <- base_data %>% filter(initial_presentation == pres)
+
+    for (i in seq_along(thresholds)) {
+      thresh <- thresholds[i]
+      label  <- labels[i]
+
+      roc_data <- pres_data %>%
+        mutate(
+          actual = case_when(
+            count_diff >= thresh ~ 1,
+            count_diff == 0      ~ 0,
+            TRUE                 ~ NA_integer_
+          ),
+          predicted = if_else(high_risk == "high_risk", 1, 0)
+        ) %>%
+        drop_na()
+
+      if (nrow(roc_data) < 10 || length(unique(roc_data$actual)) < 2) next
+
+      roc_obj <- roc(roc_data$actual, roc_data$predicted, quiet = TRUE)
+
+      roc_combined_df <- rbind(roc_combined_df, data.frame(
+        fpr = 1 - roc_obj$specificities,
+        tpr = roc_obj$sensitivities,
+        Comparison = label,
+        initial_presentation = pres
+      ))
+
+      ci_se <- ci.se(roc_obj, specificities = seq(0, 1, length.out = 100))
+      ci_combined_df <- rbind(ci_combined_df, data.frame(
+        fpr = 1 - as.numeric(rownames(ci_se)),
+        tpr_lower = ci_se[, 1],
+        tpr_upper = ci_se[, 3],
+        Comparison = label,
+        initial_presentation = pres
+      ))
+
+      auc_val <- as.numeric(auc(roc_obj))
+      auc_ci  <- ci.auc(roc_obj)
+      auc_table_df <- rbind(auc_table_df, data.frame(
+        initial_presentation = pres,
+        Comparison = label,
+        AUC = sprintf("%.2f (%.2f\u2013%.2f)", auc_val, auc_ci[1], auc_ci[3])
+      ))
+    }
+  }
+
+  ggplot() +
+    geom_ribbon(
+      data = ci_combined_df,
+      aes(x = fpr, ymin = tpr_lower, ymax = tpr_upper, fill = Comparison),
+      alpha = 0.2
+    ) +
+    geom_line(
+      data = roc_combined_df,
+      aes(x = fpr, y = tpr, color = Comparison),
+      linewidth = 1
+    ) +
+    geom_abline(linetype = "dashed", alpha = 0.6) +
+    geom_label(
+      data = auc_table_df,
+      aes(label = paste0(Comparison, ": ", AUC), color = Comparison),
+      x = 0.95, y = seq(0.25, 0.05, length.out = length(labels))[
+        match(auc_table_df$Comparison, labels)
+      ],
+      hjust = 1, size = 2.8, fill = "white", label.size = 0.3, show.legend = FALSE
+    ) +
+    scale_color_manual(values = setNames(colors, labels)) +
+    scale_fill_manual(values = setNames(colors, labels)) +
+    facet_wrap(~ initial_presentation) +
+    coord_equal() +
+    labs(x = "False Positive Rate", y = "True Positive Rate",
+         title = plot_title, color = NULL, fill = NULL) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "bottom", strip.text = element_text(face = "bold"))
+}
+```
+
+# DeLong's Tests - Summary Tables
+
+## Unmatched: Without UTI vs With UTI
+
+```{r delong-unmatched}
+results_unmatched_df <- data.frame(
+  Dataset = character(), Comparison = character(),
+  AUC_CI = character(), Sensitivity = character(),
+  Specificity = character(), DeLong_p = character(),
+  stringsAsFactors = FALSE
+)
+
+for (i in seq_along(thresholds)) {
+  thresh <- thresholds[i]
+
+  roc_with    <- prep_roc(base_data_with_uti, thresh)
+  roc_without <- prep_roc(base_data_without_uti, thresh)
+
+  roc_obj1 <- roc(roc_with$actual, roc_with$predicted, quiet = TRUE)
+  roc_obj2 <- roc(roc_without$actual, roc_without$predicted, quiet = TRUE)
+
+  test_result <- roc.test(roc_obj1, roc_obj2, method = "delong")
+  p_val <- test_result$p.value
+  p_label <- if_else(p_val < 0.001, "<0.001", sprintf("%.3f", p_val))
+
+  results_unmatched_df <- rbind(
+    results_unmatched_df,
+    extract_metrics(roc_obj2, "Without UTI", labels[i], p_label),
+    extract_metrics(roc_obj1, "With UTI", labels[i], "")
+  )
+}
+
+results_unmatched_df %>%
+  gt() %>%
+  tab_header(title = "Unmatched: Without UTI vs With UTI") %>%
+  gt_theme_espn()
+```
+
+## Matched: Without UTI vs With UTI
+
+```{r delong-matched}
+results_matched_df <- data.frame(
+  Dataset = character(), Comparison = character(),
+  AUC_CI = character(), Sensitivity = character(),
+  Specificity = character(), DeLong_p = character(),
+  stringsAsFactors = FALSE
+)
+
+for (i in seq_along(thresholds)) {
+  thresh <- thresholds[i]
+
+  roc_with    <- prep_roc(base_data_match_with_uti, thresh)
+  roc_without <- prep_roc(base_data_match_without_uti, thresh)
+
+  roc_obj1 <- roc(roc_with$actual, roc_with$predicted, quiet = TRUE)
+  roc_obj2 <- roc(roc_without$actual, roc_without$predicted, quiet = TRUE)
+
+  test_result <- roc.test(roc_obj1, roc_obj2, method = "delong")
+  p_val <- test_result$p.value
+  p_label <- if_else(p_val < 0.001, "<0.001", sprintf("%.3f", p_val))
+
+  results_matched_df <- rbind(
+    results_matched_df,
+    extract_metrics(roc_obj2, "Without UTI", labels[i], p_label),
+    extract_metrics(roc_obj1, "With UTI", labels[i], "")
+    
+  )
+}
+
+results_matched_df %>%
+  gt() %>%
+  tab_header(title = "Matched: Without UTI vs With UTI") %>%
+  gt_theme_espn()
+```
+
+# ROC Curve Plots
+
+## Without UTI
+
+### Unmatched
+
+```{r roc-without-uti-unmatched, fig.width=8, fig.height=6}
+roc_plot_without_uti_unmatched <- generate_roc_plot(base_data_without_uti, "ROC Curves: EAU Risk Stratification")
+roc_plot_without_uti_unmatched
+```
+
+### Matched
+
+```{r roc-without-uti-matched, fig.width=8, fig.height=6}
+roc_plot_without_uti_matched <- generate_roc_plot(base_data_match_without_uti, "ROC Curves: EAU Risk Stratification")
+roc_plot_without_uti_matched
+```
+
+### Split by Initial Presentation
+
+```{r roc-without-uti-faceted, fig.width=10, fig.height=8}
+roc_plot_facet_by_any_procedure_without_uti <- generate_faceted_roc_plot(
+  base_data_without_uti, "ROC Curves: EAU Risk Stratification by Initial Presentation")
+roc_plot_facet_by_any_procedure_without_uti
+```
+
+## With UTI
+
+### Unmatched
+
+```{r roc-with-uti-unmatched, fig.width=8, fig.height=6}
+roc_plot_with_uti_unmatched <- generate_roc_plot(base_data_with_uti, "ROC Curves: EAU Risk Stratification")
+roc_plot_with_uti_unmatched
+```
+
+### Matched
+
+```{r roc-with-uti-matched, fig.width=8, fig.height=6}
+roc_plot_with_uti_matched <- generate_roc_plot(base_data_match_with_uti, "ROC Curves: EAU Risk Stratification")
+roc_plot_with_uti_matched
+```
+
+### Split by Initial Presentation
+
+```{r roc-with-uti-faceted, fig.width=10, fig.height=8}
+roc_plot_facet_by_any_procedure_with_uti <- generate_faceted_roc_plot(
+  base_data_with_uti, "ROC Curves: EAU Risk Stratification by Initial Presentation")
+roc_plot_facet_by_any_procedure_with_uti
+```
+
+# Kaplan-Meier Plots
+
+## Without UTI
+
+### KM matched dataset
+
+```{r km-match-without-uti}
+base_data_without_uti_for_km1 <- base_data_without_uti_for_km %>%
+  mutate(
+    high_risk_binary = if_else(high_risk == "high_risk", 1L, 0L),
+    age_at_first_stone = as.numeric(age_at_first_stone),
+    initial_presentation = as.factor(initial_presentation)
+  ) %>%
+  drop_na(high_risk_binary, age_at_first_stone, initial_presentation)
+
+m <- matchit(high_risk_binary ~ age_at_first_stone + initial_presentation,
+             data = base_data_without_uti_for_km1,
+             method = "nearest")
+base_data_match_without_uti_match <- match.data(m)
+```
+
+### Unmatched KM
+
+```{r km-without-uti-unmatched, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = base_data_without_uti_for_km)
+
+first_to_second_event_by_risk_without_uti_unmatched <- ggsurvplot(
+  km_fit,
+  data = base_data_without_uti_for_km,
+  censor = FALSE, risk.table = TRUE, surv.median.line = "hv",
+  conf.int = TRUE, tables.theme = theme_cleantable(),
+  break.time.by = 1, xlab = "Time (years)", xlim = c(0, 10),
+  title = "Time to First Recurrence", pval = TRUE,
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw()
+)
+first_to_second_event_by_risk_without_uti_unmatched
+```
+
+### Matched KM
+
+```{r km-without-uti-matched, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = base_data_match_without_uti_match)
+
+first_to_second_event_by_risk_without_uti_matched <- ggsurvplot(
+  km_fit,
+  data = base_data_match_without_uti_match,
+  censor = FALSE, risk.table = TRUE, surv.median.line = "hv",
+  conf.int = TRUE, tables.theme = theme_cleantable(),
+  break.time.by = 1, xlab = "Time (years)", xlim = c(0, 10),
+  title = "Time to First Recurrence", pval = TRUE,
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw()
+)
+first_to_second_event_by_risk_without_uti_matched
+```
+
+### Faceted by Initial Presentation
+
+```{r km-without-uti-faceted, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = as.data.frame(base_data_without_uti_for_km))
+
+first_to_second_event_by_risk_facet_without_uti <- ggsurvplot_facet(
+  km_fit,
+  data = as.data.frame(base_data_without_uti_for_km),
+  facet.by = "initial_presentation",
+  censor = FALSE, conf.int = TRUE, surv.median.line = "hv",
+  pval = TRUE, break.time.by = 1, xlim = c(0, 10),
+  xlab = "Time (years)", ylab = "Recurrence-free probability",
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw(), panel.labs.font = list(face = "bold")
+)
+first_to_second_event_by_risk_facet_without_uti
+```
+
+## With UTI
+
+### KM matched dataset
+
+```{r km-match-with-uti}
+base_data_with_uti_for_km1 <- base_data_with_uti_for_km %>%
+  mutate(
+    high_risk_binary = if_else(high_risk == "high_risk", 1L, 0L),
+    age_at_first_stone = as.numeric(age_at_first_stone),
+    initial_presentation = as.factor(initial_presentation)
+  ) %>%
+  drop_na(high_risk_binary, age_at_first_stone, initial_presentation)
+
+m <- matchit(high_risk_binary ~ age_at_first_stone + initial_presentation,
+             data = base_data_with_uti_for_km1,
+             method = "nearest")
+base_data_match_with_uti_match <- match.data(m)
+```
+
+### Unmatched KM
+
+```{r km-with-uti-unmatched, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = base_data_with_uti_for_km)
+
+first_to_second_event_by_risk_with_uti_unmatched <- ggsurvplot(
+  km_fit,
+  data = base_data_with_uti_for_km,
+  censor = FALSE, risk.table = TRUE, surv.median.line = "hv",
+  conf.int = TRUE, tables.theme = theme_cleantable(),
+  break.time.by = 1, xlab = "Time (years)", xlim = c(0, 10),
+  title = "Time to First Recurrence", pval = TRUE,
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw()
+)
+first_to_second_event_by_risk_with_uti_unmatched
+```
+
+### Matched KM
+
+```{r km-with-uti-matched, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = base_data_match_with_uti_match)
+
+first_to_second_event_by_risk_with_uti_matched <- ggsurvplot(
+  km_fit,
+  data = base_data_match_with_uti_match,
+  censor = FALSE, risk.table = TRUE, surv.median.line = "hv",
+  conf.int = TRUE, tables.theme = theme_cleantable(),
+  break.time.by = 1, xlab = "Time (years)", xlim = c(0, 10),
+  title = "Time to First Recurrence", pval = TRUE,
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw()
+)
+first_to_second_event_by_risk_with_uti_matched
+```
+
+### Faceted by Initial Presentation
+
+```{r km-with-uti-faceted, fig.width=10, fig.height=7}
+km_fit <- surv_fit(Surv(time_to_recurrence_1, recurrence) ~ high_risk,
+                   data = as.data.frame(base_data_with_uti_for_km))
+
+first_to_second_event_by_risk_facet_with_uti <- ggsurvplot_facet(
+  km_fit,
+  data = as.data.frame(base_data_with_uti_for_km),
+  facet.by = "initial_presentation",
+  censor = FALSE, conf.int = TRUE, surv.median.line = "hv",
+  pval = TRUE, break.time.by = 1, xlim = c(0, 10),
+  xlab = "Time (years)", ylab = "Recurrence-free probability",
+  legend.title = "Risk Status", legend.labs = c("High Risk", "Low Risk"),
+  ggtheme = theme_bw(), panel.labs.font = list(face = "bold")
+)
+first_to_second_event_by_risk_facet_with_uti
+```
+
+# Save Plots
+
+```{r save-plots}
+ggsave("roc_plot_without_uti_ukb.pdf", plot = roc_plot_without_uti_unmatched, width = 8, height = 6)
+ggsave("roc_plot_with_uti_ukb.pdf", plot = roc_plot_with_uti_unmatched, width = 8, height = 6)
+ggsave("roc_plot_matched_without_uti_ukb.pdf", plot = roc_plot_without_uti_matched, width = 8, height = 6)
+ggsave("roc_plot_matched_with_uti_ukb.pdf", plot = roc_plot_with_uti_matched, width = 8, height = 6)
+ggsave("roc_plot_facet_by_any_procedure_without_uti_ukb.pdf", plot = roc_plot_facet_by_any_procedure_without_uti, width = 10, height = 8)
+ggsave("roc_plot_facet_by_any_procedure_with_uti_ukb.pdf", plot = roc_plot_facet_by_any_procedure_with_uti, width = 10, height = 8)
+
+pdf("km_plot_unmatched_without_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_without_uti_unmatched)
+dev.off()
+
+pdf("km_plot_unmatched_with_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_with_uti_unmatched)
+dev.off()
+
+pdf("km_plot_matched_without_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_without_uti_matched)
+dev.off()
+
+pdf("km_plot_matched_with_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_with_uti_matched)
+dev.off()
+
+pdf("km_plot_facet_without_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_facet_without_uti)
+dev.off()
+
+pdf("km_plot_facet_with_uti_ukb.pdf", width = 10, height = 7)
+print(first_to_second_event_by_risk_facet_with_uti)
+dev.off()
+```
