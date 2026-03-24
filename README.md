@@ -37,3 +37,11 @@ Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` 
 It should be noted that ```recurrence_identification_redone.R``` is not called within the main .Rmd script. This is deliberate, as this script has a less stringent defintion of 'recurrence' than ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` i.e. any stone code -> any stone code, rather than colic/intervention -> colic/intervention. However, the main benefit of this script is that it identifies all participants with kidney stones in UKB including those with generic codes for kidney stones (which are excluded in ```recurrence_identification_colic_to_colic_multiple_occurrences.R```).
 
 ## All of Us
+### Data Required
+The two scripts ```EAU Risk Stratification/ipynb``` and ```Symptomatic Occurences_3.ipynb``` were run using version 8 of the All of Us data, however they should be able to handle subsequent updates. They should be run in sequence: 
+1. ```EAU Risk Stratification/ipynb```
+2. ```Symptomatic Occurences_3.ipynb```
+<br>
+
+### All Kidney stone codes
+Within ```Symptomatic Occurences_3.ipynb``` all people with 'Kidney Stones' are identified before filtering for only those with ureteric colic/intervention
