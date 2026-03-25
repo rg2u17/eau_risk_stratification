@@ -869,6 +869,347 @@ first_to_second_event_by_risk_facet_with_uti <- ggsurvplot_facet(
 first_to_second_event_by_risk_facet_with_uti
 ```
 
+# DCA
+
+## Without UTI
+
+### Unmatched 
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+dca_list <- lapply(seq_along(thresholds), function(i) {
+  thresh <- thresholds[i]
+  
+  dca_data <- base_data_without_uti %>%
+    mutate(
+      actual = case_when(
+        count_diff >= thresh ~ 1,
+        count_diff == 0 ~ 0,
+        TRUE ~ NA_integer_
+      ),
+      high_risk = case_when(
+        high_risk == "low_risk" ~ 0,
+        high_risk == "high_risk" ~ 1,
+        TRUE ~ NA_integer_) 
+    ) %>%
+    drop_na(actual, high_risk)
+  
+  dca(
+    actual ~ high_risk,
+    data = dca_data,
+    thresholds = seq(0, 0.8, by = 0.01)
+  )
+})
+
+# Extract plot data and combine
+combined_df <- lapply(seq_along(dca_list), function(i) {
+  p <- plot(dca_list[[i]])
+  p$data %>% mutate(comparison = labels[i])
+}) %>%
+  bind_rows()
+
+dca_without_uti_unmatched <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ comparison, ncol = 3) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Unmatched Dataset Without rUTIs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) + xlim(c(0,0.6)) + ylim(c(-1.5,0.5)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_without_uti_unmatched
+```
+
+### Matched 
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+dca_list <- lapply(seq_along(thresholds), function(i) {
+  thresh <- thresholds[i]
+  
+  dca_data <- base_data_match_without_uti %>%
+    mutate(
+      actual = case_when(
+        count_diff >= thresh ~ 1,
+        count_diff == 0 ~ 0,
+        TRUE ~ NA_integer_
+      ),
+      high_risk = case_when(
+        high_risk == "low_risk" ~ 0,
+        high_risk == "high_risk" ~ 1,
+        TRUE ~ NA_integer_) 
+    ) %>%
+    drop_na(actual, high_risk)
+  
+  dca(
+    actual ~ high_risk,
+    data = dca_data,
+    thresholds = seq(0, 0.8, by = 0.01)
+  )
+})
+
+# Extract plot data and combine
+combined_df <- lapply(seq_along(dca_list), function(i) {
+  p <- plot(dca_list[[i]])
+  p$data %>% mutate(comparison = labels[i])
+}) %>%
+  bind_rows()
+
+dca_without_uti_matched <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ comparison, ncol = 3) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Matched Dataset Without rUTIs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) + xlim(c(0,0.6)) + ylim(c(-1.5,0.5)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_without_uti_matched
+```
+
+### By Initial Presentation 
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+presentations <- unique(base_data_without_uti$initial_presentation)
+
+combined_df <- lapply(presentations, function(pres) {
+  lapply(seq_along(thresholds), function(i) {
+    thresh <- thresholds[i]
+    
+    dca_data <- base_data_without_uti %>%
+      filter(initial_presentation == pres) %>%
+      mutate(
+        actual = case_when(
+          count_diff >= thresh ~ 1,
+          count_diff == 0 ~ 0,
+          TRUE ~ NA_integer_
+        ),
+        high_risk = case_when(
+          high_risk == "low_risk" ~ 0,
+          high_risk == "high_risk" ~ 1,
+          TRUE ~ NA_integer_
+        )
+      ) %>%
+      drop_na(actual, high_risk)
+    
+    if (nrow(dca_data) < 10 || length(unique(dca_data$actual)) < 2) return(NULL)
+    
+    dca_obj <- dca(
+      actual ~ high_risk,
+      data = dca_data,
+      thresholds = seq(0, 0.8, by = 0.01)
+    )
+    
+    p <- plot(dca_obj)
+    p$data %>% mutate(comparison = labels[i], initial_presentation = pres)
+  }) %>% bind_rows()
+}) %>% bind_rows()
+
+dca_initial_presentation_without_uti <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(initial_presentation ~ comparison) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Unmatched Dataset Without rUTIs Facetted by Initial Presentation"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") +
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) +
+  xlim(c(0, 0.4)) + ylim(c(-1.0, 0.6)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_initial_presentation_without_uti
+```
+
+## With UTI
+
+### Unmatched 
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+dca_list <- lapply(seq_along(thresholds), function(i) {
+  thresh <- thresholds[i]
+  
+  dca_data <- base_data_with_uti %>%
+    mutate(
+      actual = case_when(
+        count_diff >= thresh ~ 1,
+        count_diff == 0 ~ 0,
+        TRUE ~ NA_integer_
+      ),
+      high_risk = case_when(
+        high_risk == "low_risk" ~ 0,
+        high_risk == "high_risk" ~ 1,
+        TRUE ~ NA_integer_) 
+    ) %>%
+    drop_na(actual, high_risk)
+  
+  dca(
+    actual ~ high_risk,
+    data = dca_data,
+    thresholds = seq(0, 0.8, by = 0.01)
+  )
+})
+
+# Extract plot data and combine
+combined_df <- lapply(seq_along(dca_list), function(i) {
+  p <- plot(dca_list[[i]])
+  p$data %>% mutate(comparison = labels[i])
+}) %>%
+  bind_rows()
+
+dca_with_uti_unmatched <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ comparison, ncol = 3) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Unmatched Dataset With rUTIs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) + xlim(c(0,0.6)) + ylim(c(-1.5,0.5)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_with_uti_unmatched
+```
+
+### Matched
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+dca_list <- lapply(seq_along(thresholds), function(i) {
+  thresh <- thresholds[i]
+  
+  dca_data <- base_data_match_with_uti %>%
+    mutate(
+      actual = case_when(
+        count_diff >= thresh ~ 1,
+        count_diff == 0 ~ 0,
+        TRUE ~ NA_integer_
+      ),
+      high_risk = case_when(
+        high_risk == "low_risk" ~ 0,
+        high_risk == "high_risk" ~ 1,
+        TRUE ~ NA_integer_) 
+    ) %>%
+    drop_na(actual, high_risk)
+  
+  dca(
+    actual ~ high_risk,
+    data = dca_data,
+    thresholds = seq(0, 0.8, by = 0.01)
+  )
+})
+
+# Extract plot data and combine
+combined_df <- lapply(seq_along(dca_list), function(i) {
+  p <- plot(dca_list[[i]])
+  p$data %>% mutate(comparison = labels[i])
+}) %>%
+  bind_rows()
+
+dca_with_uti_matched <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ comparison, ncol = 3) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Matched Dataset With rUTIs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) + xlim(c(0,0.6)) + ylim(c(-1.5,0.5)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_with_uti_matched
+```
+
+### By Initial Presentation 
+```{r}
+thresholds <- c(1, 2, 3)
+labels <- c("0 vs ≥1", "0 vs ≥2", "0 vs ≥3")
+
+presentations <- unique(base_data_with_uti$initial_presentation)
+
+combined_df <- lapply(presentations, function(pres) {
+  lapply(seq_along(thresholds), function(i) {
+    thresh <- thresholds[i]
+    
+    dca_data <- base_data_with_uti %>%
+      filter(initial_presentation == pres) %>%
+      mutate(
+        actual = case_when(
+          count_diff >= thresh ~ 1,
+          count_diff == 0 ~ 0,
+          TRUE ~ NA_integer_
+        ),
+        high_risk = case_when(
+          high_risk == "low_risk" ~ 0,
+          high_risk == "high_risk" ~ 1,
+          TRUE ~ NA_integer_
+        )
+      ) %>%
+      drop_na(actual, high_risk)
+    
+    if (nrow(dca_data) < 10 || length(unique(dca_data$actual)) < 2) return(NULL)
+    
+    dca_obj <- dca(
+      actual ~ high_risk,
+      data = dca_data,
+      thresholds = seq(0, 0.8, by = 0.01)
+    )
+    
+    p <- plot(dca_obj)
+    p$data %>% mutate(comparison = labels[i], initial_presentation = pres)
+  }) %>% bind_rows()
+}) %>% bind_rows()
+
+dca_initial_presentation_with_uti <- ggplot(combined_df, aes(x = threshold, y = net_benefit, colour = label)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(initial_presentation ~ comparison) +
+  labs(
+    x = "Probability of Recurrence Threshold",
+    y = "Net Benefit",
+    colour = NULL,
+    title = "DCA: UKB Unmatched Dataset Without rUTIs"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") +
+  scale_colour_discrete(
+    labels = c("Follow-up All", "Follow-up None", "Risk Status")
+  ) +
+  xlim(c(0, 0.6)) + ylim(c(-1.5, 0.6)) + geom_vline(xintercept = 0.2, linetype = "dashed")
+
+dca_initial_presentation_with_uti
+```
+
+
 # Save Plots
 
 ```{r save-plots}
@@ -902,4 +1243,22 @@ dev.off()
 pdf("km_plot_facet_with_uti_ukb.pdf", width = 10, height = 7)
 print(first_to_second_event_by_risk_facet_with_uti)
 dev.off()
+
+ggsave("dca_without_uti_unmatched.pdf", plot = dca_without_uti_unmatched,
+       width = 10, height = 8)
+
+ggsave("dca_without_uti_matched.pdf", plot = dca_without_uti_matched,
+       width = 10, height = 8)
+
+ggsave("dca_with_uti_unmatched.pdf", plot = dca_with_uti_unmatched,
+       width = 10, height = 8)
+
+ggsave("dca_with_uti_matched.pdf", plot = dca_with_uti_matched,
+       width = 10, height = 8)
+
+ggsave("dca_initial_presentation_without_uti.pdf", plot = dca_initial_presentation_without_uti,
+       width = 10, height = 8)
+
+ggsave("dca_initial_presentation_with_uti.pdf", plot = dca_initial_presentation_with_uti,
+       width = 10, height = 8)
 ```
