@@ -30,18 +30,18 @@ We suggest creating these in Cohort Browser, and then using Table Exporter to cr
 
 
 ### Analysis
-Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` to replicate the analyses. There are two dependent R scripts:
+Once the above datasets are created, then use the ```with_vs_without_uti.Rmd``` (stone naive/first presentation) and ```prognostic_accuracy_grid_search.Rmd``` (recurrent presentations) to replicate the analyses. There are two dependent R scripts:
 ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` and ```pmhx_ascertainment_with_dates.R```, which need to be within the same working directory as the .Rmd when running this. 
 
 ### All Kidney stone codes
-It should be noted that ```recurrence_identification_redone.R``` is not called within the main .Rmd script. This is deliberate, as this script has a less stringent defintion of 'recurrence' than ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` i.e. any stone code -> any stone code, rather than colic/intervention -> colic/intervention. However, the main benefit of this script is that it identifies all participants with kidney stones in UKB including those with generic codes for kidney stones (which are excluded in ```recurrence_identification_colic_to_colic_multiple_occurrences.R```).
+It should be noted that ```recurrence_identification_redone.R``` is not called within either .Rmd script. This is deliberate, as this script has a less stringent defintion of 'recurrence' than ```recurrence_identification_colic_to_colic_multiple_occurrences.R``` i.e. any stone code -> any stone code, rather than colic/intervention -> colic/intervention. However, the main benefit of this script is that it identifies all participants with kidney stones in UKB including those with generic codes for kidney stones (which are excluded in ```recurrence_identification_colic_to_colic_multiple_occurrences.R```).
 
 ## All of Us
 ### Data Required
-The two scripts ```EAU Risk Stratification/ipynb``` and ```Symptomatic Occurences_3.ipynb``` were run using version 8 of the All of Us data, however they should be able to handle subsequent updates. They should be run in sequence: 
+The two scripts ```EAU Risk Stratification/ipynb``` and ```symptomatic_occurences.ipynb``` were run using version 8 of the All of Us data, however they should be able to handle subsequent updates. They should be run in sequence: 
 1. ```EAU Risk Stratification/ipynb```
-2. ```Symptomatic Occurences_3.ipynb```
+2. ```symptomatic_occurences.ipynb```
 <br>
 
 ### All Kidney stone codes
-Within ```Symptomatic Occurences_3.ipynb``` all people with 'Kidney Stones' are identified before filtering for only those with ureteric colic/intervention
+Within ```symptomatic_occurences.ipynb``` all people with 'Kidney Stones' are identified before filtering for only those with ureteric colic/intervention
