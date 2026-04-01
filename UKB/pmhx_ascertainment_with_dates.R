@@ -2274,17 +2274,18 @@ pmhx_gp_data <- pmhx_gp_data %>% mutate(
   metabolic_disorder = case_when(
     (read_v2_code  %in% pmhx_metabolic_disorders_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_metabolic_disorders_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)
+) ~ 1,
     TRUE ~ 0),
   dm = case_when(
     (read_v2_code  %in% pmhx_dm_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_dm_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   hyperpth = case_when(
     (read_v2_code  %in% pmhx_hyperpth_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_hyperpth_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   immunosuppression = case_when(
     (read_v2_code  %in% pmhx_immunosuppression_hiv_list_readv2_3 | 
@@ -2299,22 +2300,22 @@ pmhx_gp_data <- pmhx_gp_data %>% mutate(
   htn = case_when(
     (read_v2_code  %in% pmhx_htn_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_htn_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0), 
   dyslipidaemia = case_when(
     (read_v2_code  %in% pmhx_dyslipid_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_dyslipid_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),   
   pkd = case_when(
     (read_v2_code  %in% pmhx_pkd_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_pkd_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),   
   msk = case_when(
     (read_v2_code  %in% pmhx_msk_nephrocalcinosis_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_msk_nephrocalcinosis_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0), 
   bowel_surgery = case_when(
     (read_v2_code  %in% pmhx_bowel_surgery_list_readv2_3 | 
@@ -2324,7 +2325,7 @@ pmhx_gp_data <- pmhx_gp_data %>% mutate(
   ibd = case_when(
     (read_v2_code  %in% pmhx_ibd_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_ibd_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   malabsorption = case_when(
     (read_v2_code  %in% pmhx_malabsorption_list_readv2_3 | 
@@ -2334,7 +2335,7 @@ pmhx_gp_data <- pmhx_gp_data %>% mutate(
   sarcoidosis = case_when(
     (read_v2_code  %in% pmhx_sarcoidosis_list_readv2_3 | 
       ctv3_read_v3_code %in% pmhx_sarcoidosis_list_readv2_3) & 
-      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_clinical_code_was_entered < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   spinal_injury = case_when(
     (read_v2_code  %in% pmhx_spinal_cord_injury_list_readv2_3 | 
@@ -2527,17 +2528,17 @@ pmhx_icd_data <- icd_dates4_long_diagnoses %>% mutate(
   metabolic_disorder = case_when(
     (icd_code  %in% pmhx_metabolic_disorders_list_icd9 | 
        icd_code %in% pmhx_metabolic_disorders_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   dm = case_when(
     (icd_code  %in% pmhx_dm_list_icd9 | 
        icd_code %in% pmhx_dm_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   hyperpth = case_when(
     (icd_code  %in% pmhx_hyperpth_list_icd9 | 
        icd_code %in% pmhx_hyperpth_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0), 
   uti = case_when(
     (icd_code  %in% pmhx_uti_list_icd9 | 
@@ -2557,12 +2558,12 @@ pmhx_icd_data <- icd_dates4_long_diagnoses %>% mutate(
   htn = case_when(
     (icd_code  %in% pmhx_htn_list_icd9 | 
        icd_code %in% pmhx_htn_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0), 
   dyslipidaemia = case_when(
     (icd_code  %in% pmhx_dyslipid_list_icd9 | 
        icd_code %in% pmhx_dyslipid_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),   
   pkd = case_when(
     (icd_code  %in% pmhx_pkd_list_icd9 | 
@@ -2571,7 +2572,7 @@ pmhx_icd_data <- icd_dates4_long_diagnoses %>% mutate(
     TRUE ~ 0),   
   msk = case_when(
     (icd_code  %in% pmhx_msk_nephrocalcinosis_list_icd9) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0), 
   bowel_surgery = case_when(
     (icd_code  %in% pmhx_bowel_surgery_list_icd9 | 
@@ -2591,7 +2592,7 @@ pmhx_icd_data <- icd_dates4_long_diagnoses %>% mutate(
   sarcoidosis = case_when(
     (icd_code  %in% pmhx_sarcoidosis_list_icd9 | 
        icd_code %in% pmhx_sarcoidosis_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   spinal_injury = case_when(
     (icd_code  %in% pmhx_spinal_cord_injury_list_icd9 | 
@@ -2635,7 +2636,7 @@ pmhx_icd_data <- icd_dates4_long_diagnoses %>% mutate(
   eating_disorder = case_when(
     (icd_code  %in% pmhx_eating_disorder_list_icd9 | 
        icd_code %in% pmhx_eating_disorder_list_icd10) & 
-      (date_of_code < time_to_first_recurrence1$date_of_first_code) ~ 1,
+      (date_of_code < time_to_first_recurrence1$date_of_first_code + months(6)) ~ 1,
     TRUE ~ 0),
   horshoe_kidney = case_when(
     (icd_code  %in% pmhx_horseshoe_kidney_list_icd9 | 
