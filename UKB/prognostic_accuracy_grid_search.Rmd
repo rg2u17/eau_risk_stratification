@@ -243,6 +243,10 @@ build_analysis_dataset <- function(starting_point_col,
     drop_na(last_date)
 
   # Compute time to next event from start_date (for KM)
+  # Include ALL patients: recurrers are events, non-recurrers are censored at
+
+  # their last follow-up (or follow_up_years, whichever is shorter).
+  # Also compute total follow-up from start_date for use in ROC exclusion logic.
   ds <- ds %>%
     mutate(
       next_event_date = case_when(
@@ -252,6 +256,9 @@ build_analysis_dataset <- function(starting_point_col,
         starting_point_col == "third_date" ~ fourth_date
       ),
       has_next_event = as.integer(!is.na(next_event_date)),
+      # Total follow-up from start date (used for filtering in binary analyses)
+      follow_up_from_start_years = as.numeric(last_date - start_date) / 365.25,
+      # Time to event or censoring
       time_to_next_years = if_else(
         has_next_event == 1L,
         as.numeric(next_event_date - start_date) / 365.25,
@@ -302,11 +309,15 @@ build_analysis_dataset <- function(starting_point_col,
 
 ```{r helper-functions}
 prep_roc_grid <- function(ds, thresh, risk_col = "high_risk_with_time") {
+  # For binary classification (ROC/PPV/NPV etc.):
+  #   - Recurrers (subsequent_events >= thresh): always included (actual = 1)
+  #   - Non-recurrers WITH >= follow_up_years follow-up: included (actual = 0)
+  #   - Non-recurrers WITHOUT follow_up_years follow-up: EXCLUDED (ambiguous)
   ds %>%
     mutate(
       actual = case_when(
         subsequent_events >= thresh ~ 1L,
-        subsequent_events == 0L ~ 0L,
+        subsequent_events < thresh & follow_up_from_start_years >= follow_up_years ~ 0L,
         TRUE ~ NA_integer_
       ),
       predicted = if_else(!!sym(risk_col) == "high_risk", 1, 0)
