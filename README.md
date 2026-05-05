@@ -45,3 +45,10 @@ The two scripts ```EAU Risk Stratification/ipynb``` and ```symptomatic_occurence
 
 ### All Kidney stone codes
 Within ```symptomatic_occurences.ipynb``` all people with 'Kidney Stones' are identified before filtering for only those with ureteric colic/intervention
+
+# Figures for Paper
+Combine the results from the above analyses into:
+`UKB Recurrence paper results/` and:
+`AoU Recurrence paper results/`
+
+Then run the final .Rmd file: `final_figures.Rmd`
