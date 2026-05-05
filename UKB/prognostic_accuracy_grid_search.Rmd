@@ -81,13 +81,13 @@ icd9_data <- read.csv("icd9_participant.csv",
 # Recurrence Identification
 
 ```{r identify-recurrence, message=FALSE, warning=FALSE}
-source("recurrence_identification_colic_to_colic_multiple_occurrences.R")
+source("~/Desktop/Howles/Recurrent Kidney stones/R/Dietary Analysis/Recurrent Stones/Dietary Analysis - Recurrent Stones/recurrence_identification_colic_to_colic_multiple_occurrences.R")
 ```
 
 # Past Medical History
 
 ```{r ascertain-pmhx, message=FALSE, warning=FALSE}
-source("pmhx_ascertainment_with_dates.R")
+source("~/Desktop/Howles/Recurrent Kidney stones/R/Recurrent KSD/pmhx_ascertainment_with_dates_and_multiple_recurrences.R")
 ```
 
 # Build dates_detailed Object
@@ -142,7 +142,10 @@ eau_risk_cols <- c("metabolic_disorder", "metabolic_syndrome", "hyperpth",
                    "ureteric_stricture", "vur", "single_kidney",
                    "ileal_conduit", "eating_disorder", "horshoe_kidney")
 
-build_high_risk_df <- function(starting_point_col) {
+build_high_risk_df <- function(starting_point_col, pmhx_df = pmhx_cleaned_1) {
+  # `pmhx_df` lets the caller pass an as-of-event-date pmhx tibble.
+  # Defaults to pmhx_cleaned_1 (as-of 1st stone) so analyses that treat the
+  # index event as the starting point retain their original semantics.
 
   # Pick the relevant date column for computing age at start
   ref_dates <- dates_detailed %>%
@@ -162,7 +165,7 @@ build_high_risk_df <- function(starting_point_col) {
   hr <- dates_detailed %>%
     dplyr::select(participant_id) %>%
     distinct() %>%
-    left_join(pmhx_cleaned, by = "participant_id") %>%
+    left_join(pmhx_df, by = "participant_id") %>%
     mutate(across(any_of(risk_cols), ~replace_na(., 0))) %>%
     mutate(
       risk_sum = rowSums(across(any_of(risk_cols)), na.rm = TRUE),
@@ -231,8 +234,37 @@ build_analysis_dataset <- function(starting_point_col,
       )
     )
 
-  # Get follow-up info
-  last_date_df <- overall_follow_up %>% dplyr::select(participant_id, last_date)
+  # Get follow-up info using the robust last_date recipe (see comment in
+  # the transitions-long chunk for full rationale). Both upstream sources
+  # are sparse for UKB, so we prefer their max and fall back on the cohort
+  # census date for participants whose last_date isn't recorded.
+  .census_date <- max(c(
+    overall_follow_up$last_date,
+    time_to_first_recurrence1$last_date,
+    dates_detailed$index_date,
+    dates_detailed$first_date,
+    dates_detailed$second_date,
+    dates_detailed$third_date,
+    dates_detailed$fourth_date,
+    dates_detailed$fifth_date
+  ), na.rm = TRUE)
+
+  last_date_df <- dates_detailed %>%
+    dplyr::select(participant_id) %>%
+    distinct() %>%
+    left_join(overall_follow_up %>%
+                dplyr::select(participant_id, last_date_a = last_date),
+              by = "participant_id") %>%
+    left_join(time_to_first_recurrence1 %>%
+                dplyr::select(participant_id, last_date_b = last_date),
+              by = "participant_id") %>%
+    rowwise() %>%
+    mutate(
+      last_date = max(c(last_date_a, last_date_b), na.rm = TRUE),
+      last_date = if (!is.finite(last_date)) .census_date else last_date
+    ) %>%
+    ungroup() %>%
+    dplyr::select(participant_id, last_date)
 
   ds <- ds %>%
     left_join(last_date_df, by = "participant_id") %>%
@@ -264,7 +296,18 @@ build_analysis_dataset <- function(starting_point_col,
     filter(time_to_next_years > 0)
 
   # Add high-risk classification (age assessed at this starting point)
-  hr_df <- build_high_risk_df(starting_point_col)
+  # Use the per-event pmhx tibble (built by
+  # pmhx_ascertainment_with_dates_and_multiple_recurrences.R) so risk-factor
+  # status is re-ascertained AS OF the starting event of this analysis.
+  pmhx_for_start <- switch(
+    starting_point_col,
+    "index_date"  = pmhx_cleaned_1,
+    "first_date"  = pmhx_cleaned_2,
+    "second_date" = pmhx_cleaned_3,
+    "third_date"  = pmhx_cleaned_4,
+    pmhx_cleaned_1
+  )
+  hr_df <- build_high_risk_df(starting_point_col, pmhx_df = pmhx_for_start)
   ds <- ds %>%
     left_join(hr_df, by = "participant_id") %>%
     left_join(age_at_first_stone_df, by = "participant_id")
@@ -602,6 +645,50 @@ metrics_index <- lapply(seq_along(recurrence_thresholds), function(i) {
 metrics_index %>% gt() %>% gt_theme_espn()
 ```
 
+# Grid Search Helper
+
+```{r run-grid-search-fn}
+# Drives the grid search across the time_cutoffs_months for a given starting point.
+# Returns a list with metrics, ROC plots, KM plots, DCA plots.
+run_grid_search <- function(starting_point_col, sp_label) {
+  all_metrics   <- data.frame()
+  all_roc_plots <- list()
+  all_km_plots  <- list()
+  all_dca_plots <- list()
+
+  for (cutoff in time_cutoffs_months) {
+    ds <- build_analysis_dataset(starting_point_col,
+                                 inter_event_cutoff_months = cutoff)
+    if (nrow(ds) < 20) next
+
+    cutoff_label <- paste0(sp_label, " | Gap ≤", cutoff,
+                           "mo = High Risk")
+
+    for (i in seq_along(recurrence_thresholds)) {
+      roc_data <- prep_roc_grid(ds, recurrence_thresholds[i])
+      if (nrow(roc_data) < 10 || length(unique(roc_data$actual)) < 2) next
+      roc_obj <- roc(roc_data$actual, roc_data$predicted, quiet = TRUE)
+      m <- extract_metrics_grid(roc_obj, recurrence_labels[i], roc_data)
+      m$Starting_Point     <- sp_label
+      m$Time_Cutoff_Months <- cutoff
+      all_metrics <- rbind(all_metrics, m)
+    }
+
+    roc_p <- generate_roc_plot_grid(ds, paste0("ROC: ", cutoff_label))
+    if (!is.null(roc_p)) all_roc_plots[[paste0("cutoff_", cutoff)]] <- roc_p
+    km_p  <- generate_km_plot_grid(ds, paste0("KM: ", cutoff_label))
+    if (!is.null(km_p))  all_km_plots[[paste0("cutoff_", cutoff)]]  <- km_p
+    dca_p <- generate_dca_plot_grid(ds, paste0("DCA: ", cutoff_label))
+    if (!is.null(dca_p)) all_dca_plots[[paste0("cutoff_", cutoff)]] <- dca_p
+  }
+
+  list(metrics   = all_metrics,
+       roc_plots = all_roc_plots,
+       km_plots  = all_km_plots,
+       dca_plots = all_dca_plots)
+}
+```
+
 ## From First Date (1st Recurrence)
 
 ```{r grid-first, fig.width=10, fig.height=8, warning=FALSE, message=FALSE, results='asis'}
@@ -722,13 +809,30 @@ for (nm in names(results_third$km_plots)) {
 }
 ```
 
-### DCA - Third Date 
+### DCA - Third Date
 ```{r dca-third, fig.width=10, fig.height=6, warning=FALSE, results='asis'}
 for (nm in names(results_third$dca_plots)) {
   cat("\n####", gsub("cutoff_", "Gap Cut-off: ", nm), "months\n")
   print(results_third$dca_plots[[nm]])
   cat("\n")
 }
+```
+
+# Aggregate Metrics Across Starting Points
+
+Combines `metrics_index` (Index Date, no cutoff) with the per-transition grid
+search results (`results_first/second/third$metrics`) into a single tibble used
+by the downstream heatmaps and the saved CSV.
+
+```{r combine-metrics}
+all_metrics_combined <- bind_rows(
+  metrics_index,
+  results_first$metrics,
+  results_second$metrics,
+  results_third$metrics
+)
+
+cat("all_metrics_combined: ", nrow(all_metrics_combined), " rows\n", sep = "")
 ```
 
 ## AUC
@@ -909,28 +1013,26 @@ for (sp_col in c("first_date", "second_date", "third_date")) {
                      third_date  = "Fourth Event")
 
   for (cutoff in time_cutoffs_months) {
-      ds <- build_analysis_dataset(sp_col, inter_event_cutoff_months = cutoff)
-      if (nrow(ds) < 20) next
+    ds <- build_analysis_dataset(sp_col, inter_event_cutoff_months = cutoff)
+    if (nrow(ds) < 20) next
 
-      for (i in seq_along(recurrence_thresholds)) {
-        thresh <- recurrence_thresholds[i]
-        label  <- recurrence_labels[i]
+    for (i in seq_along(recurrence_thresholds)) {
+      thresh <- recurrence_thresholds[i]
+      label  <- recurrence_labels[i]
 
-        tmp <- ds %>%
-          mutate(recurred = as.integer(subsequent_events >= thresh)) %>%
-          group_by(high_risk_with_time) %>%
-          summarise(n = n(),
-                    n_recurred = sum(recurred, na.rm = TRUE),
-                    .groups = "drop") %>%
-          mutate(
-            pct_recurred = n_recurred / n * 100,
-            Starting_Point = sp_label,
-            Time_Cutoff_Months = cutoff,
-            Comparison = label,
-            
-          )
-        likelihood_rows <- c(likelihood_rows, list(tmp))
-      }
+      tmp <- ds %>%
+        mutate(recurred = as.integer(subsequent_events >= thresh)) %>%
+        group_by(high_risk_with_time) %>%
+        summarise(n = n(),
+                  n_recurred = sum(recurred, na.rm = TRUE),
+                  .groups = "drop") %>%
+        mutate(
+          pct_recurred       = n_recurred / n * 100,
+          Starting_Point     = sp_label,
+          Time_Cutoff_Months = cutoff,
+          Comparison         = label
+        )
+      likelihood_rows <- c(likelihood_rows, list(tmp))
     }
   }
 }
@@ -1075,9 +1177,17 @@ save_grid_plots <- function(results, prefix) {
            plot = results$roc_plots[[nm]], width = 8, height = 6)
   }
   for (nm in names(results$km_plots)) {
-    pdf(paste0("grid_search_km_", prefix, "_", nm, ".pdf"), width = 10, height = 7)
-    print(results$km_plots[[nm]])
-    dev.off()
+    # Save as a single-page PDF. Using `pdf() / print(<ggsurvplot>) / dev.off()`
+    # ends up producing a 2-page PDF (page 1 blank, page 2 = the plot) because
+    # `print.ggsurvplot` calls `grid.newpage()` internally. Wrapping the
+    # composed ggsurvplot via cowplot::plot_grid + ggsave keeps it on one page.
+    km <- results$km_plots[[nm]]
+    composed <- if (inherits(km, "ggsurvplot")) {
+      cowplot::plot_grid(km$plot, km$table, ncol = 1,
+                         rel_heights = c(0.78, 0.22), align = "v")
+    } else km
+    ggsave(paste0("grid_search_km_", prefix, "_", nm, ".pdf"),
+           plot = composed, width = 10, height = 7)
   }
   for (nm in names(results$dca_plots)) {
     ggsave(paste0("grid_search_dca_", prefix, "_", nm, ".pdf"),
@@ -1123,7 +1233,46 @@ transition_specs <- tribble(
   "4→5",      "third_date",   "fourth_date", 4L,              "gap_second_to_third_months"
 )
 
-last_date_df <- overall_follow_up %>% dplyr::select(participant_id, last_date)
+# Robust last_date derivation:
+#   - Both `overall_follow_up$last_date` and `time_to_first_recurrence1$last_date`
+#     are NA for the majority of UKB stone-formers (the upstream summarise()
+#     calls in the recurrence-identification script use max(.) without
+#     na.rm = TRUE, so any single NA in the rbind propagates).
+#   - For UKB the data freeze is ~2021-05-03; participants are continuously
+#     followed via NHS linkage until that date unless withdrawn or deceased.
+#   - Recipe: prefer `overall_follow_up$last_date`, then
+#     `time_to_first_recurrence1$last_date`, with the cohort census date
+#     (max date observed anywhere in the data) as a final fallback.
+cohort_census_date <- max(c(
+  overall_follow_up$last_date,
+  time_to_first_recurrence1$last_date,
+  dates_detailed$index_date,
+  dates_detailed$first_date,
+  dates_detailed$second_date,
+  dates_detailed$third_date,
+  dates_detailed$fourth_date,
+  dates_detailed$fifth_date
+), na.rm = TRUE)
+
+last_date_df <- dates_detailed %>%
+  dplyr::select(participant_id) %>%
+  distinct() %>%
+  left_join(overall_follow_up %>%
+              dplyr::select(participant_id, last_date_a = last_date),
+            by = "participant_id") %>%
+  left_join(time_to_first_recurrence1 %>%
+              dplyr::select(participant_id, last_date_b = last_date),
+            by = "participant_id") %>%
+  rowwise() %>%
+  mutate(
+    last_date = max(c(last_date_a, last_date_b), na.rm = TRUE),
+    last_date = if (!is.finite(last_date)) cohort_census_date else last_date
+  ) %>%
+  ungroup() %>%
+  dplyr::select(participant_id, last_date)
+
+cat("last_date_df: ", nrow(last_date_df), " rows; cohort_census_date = ",
+    as.character(cohort_census_date), "\n", sep = "")
 
 transitions_long <- pmap_dfr(transition_specs, function(transition, from_col, to_col,
                                                          from_event_num, gap_col) {
@@ -1177,6 +1326,64 @@ transitions_long %>%
     .groups = "drop"
   ) %>%
   print()
+```
+
+## Virtual Stone Clinic — KM-derived recurrence rates at 2/5/10 years
+
+```{r virtual-stone-clinic-rates}
+# `transitions_long` has time_to_next_years capped at follow_up_years (=5).
+# Re-build an uncapped version on the same row schema so we can read off
+# 2-, 5- and 10-year cumulative recurrence from one Kaplan-Meier curve.
+transitions_long_full <- pmap_dfr(
+  transition_specs,
+  function(transition, from_col, to_col, from_event_num, gap_col) {
+    dates_detailed %>%
+      dplyr::select(participant_id,
+                    from_date = !!sym(from_col),
+                    to_date   = !!sym(to_col)) %>%
+      filter(!is.na(from_date)) %>%
+      left_join(last_date_df, by = "participant_id") %>%
+      filter(!is.na(last_date)) %>%
+      mutate(
+        transition           = transition,
+        from_event_num       = from_event_num,
+        had_next_event       = if_else(!is.na(to_date), 1L, 0L),
+        event_or_censor_date = if_else(!is.na(to_date), to_date, last_date),
+        time_to_next_years   = as.numeric(event_or_censor_date - from_date) / 365.25
+      ) %>%
+      dplyr::select(participant_id, transition, from_event_num,
+                    time_to_next_years, had_next_event) %>%
+      filter(time_to_next_years > 0)
+  }
+)
+
+cat("transitions_long_full (uncapped) rows:", nrow(transitions_long_full), "\n")
+cat("max time_to_next_years:", round(max(transitions_long_full$time_to_next_years), 1), "yrs\n")
+
+# Pooled KM across all transitions (no risk stratification)
+fit_overall_full <- survival::survfit(
+  Surv(time_to_next_years, had_next_event) ~ 1,
+  data = transitions_long_full
+)
+
+s_full <- summary(fit_overall_full, times = c(2, 5, 10), extend = TRUE)
+
+km_rates_df <- data.frame(
+  horizon_years = c(2, 5, 10),
+  n_at_risk     = s_full$n.risk,
+  n_events      = s_full$n.event,
+  surv          = s_full$surv,
+  surv_lo       = s_full$lower,
+  surv_hi       = s_full$upper,
+  rec_pct       = (1 - s_full$surv)  * 100,
+  rec_lo_pct    = (1 - s_full$upper) * 100,
+  rec_hi_pct    = (1 - s_full$lower) * 100,
+  Cohort        = "UKB"
+)
+
+write.csv(km_rates_df, "virtual_stone_clinic_recurrence_rates.csv", row.names = FALSE)
+cat("Saved: virtual_stone_clinic_recurrence_rates.csv\n")
+print(km_rates_df)
 ```
 
 ## KM by Event Number
@@ -1502,15 +1709,18 @@ for (cutoff in c(12, 18, 24)) {
 Compare the enhanced definition (EAU high risk OR recurrent disease with short gap) to the EAU-only definition. We use the 12-month cutoff for the short gap definition.
 
 ```{r combined-eau-recurrent, fig.width=10, fig.height=14}
-# Get EAU risk classification at each starting point
+# Get EAU risk classification at each starting point.
+# Uses the per-event pmhx tibbles built by
+# pmhx_ascertainment_with_dates_and_multiple_recurrences.R so risk is
+# re-ascertained AS OF each transition's starting event (not fixed at index).
 eau_risk_by_start <- bind_rows(
-  build_high_risk_df("index_date") %>%
+  build_high_risk_df("index_date",  pmhx_df = pmhx_cleaned_1) %>%
     mutate(from_col = "index_date"),
-  build_high_risk_df("first_date") %>%
+  build_high_risk_df("first_date",  pmhx_df = pmhx_cleaned_2) %>%
     mutate(from_col = "first_date"),
-  build_high_risk_df("second_date") %>%
+  build_high_risk_df("second_date", pmhx_df = pmhx_cleaned_3) %>%
     mutate(from_col = "second_date"),
-  build_high_risk_df("third_date") %>%
+  build_high_risk_df("third_date",  pmhx_df = pmhx_cleaned_4) %>%
     mutate(from_col = "third_date")
 )
 
@@ -2313,9 +2523,14 @@ for (nm in names(rec_roc_plots)) {
          plot = rec_roc_plots[[nm]], width = 8, height = 6)
 }
 for (nm in names(rec_km_plots)) {
-  pdf(paste0("recurrent_disease_km_prognostic_", nm, ".pdf"), width = 10, height = 7)
-  print(rec_km_plots[[nm]])
-  dev.off()
+  # Single-page PDF (avoid the 2-page output from pdf()/print(ggsurvplot)/dev.off())
+  km <- rec_km_plots[[nm]]
+  composed <- if (inherits(km, "ggsurvplot")) {
+    cowplot::plot_grid(km$plot, km$table, ncol = 1,
+                       rel_heights = c(0.78, 0.22), align = "v")
+  } else km
+  ggsave(paste0("recurrent_disease_km_prognostic_", nm, ".pdf"),
+         plot = composed, width = 10, height = 7)
 }
 for (nm in names(rec_dca_plots)) {
   ggsave(paste0("recurrent_disease_dca_", nm, ".pdf"),
@@ -2325,423 +2540,159 @@ for (nm in names(rec_dca_plots)) {
 cat("All recurrent disease outputs saved.\n")
 ```
 
-# EAU vs EAU + Prior Event Count (No Time Cutoff)
+# Whole-Dataset Recurrent Disease Analysis (EAU vs EAU + Prior Event Count)
 
-This section answers a focused question: **does simply adding "number of prior stone events" (with no time-gap requirement) improve prognostic accuracy over EAU stratification alone?**
+Uses the entire long-format `transitions_long` (every participant contributes
+one row per transition they reach: 1→2, 2→3, 3→4, 4→5). Each row's `eau_risk`
+column has been re-ascertained AS OF the starting event of that transition
+(via the per-event `pmhx_cleaned_1/2/3/4` tibbles built earlier).This simulates a kidney stone clinic where stone formers will have a variety of previous events (first time → highly recurrent)
 
-We sweep the count threshold across ≥2, ≥3, ≥4 prior events. To avoid repeated-measures confounding we run two complementary analyses:
-
-1. **Per-transition analysis** — each transition (1→2, 2→3, 3→4, 4→5) is analysed separately. Within a transition, all participants share the same `from_event_num`, so only thresholds strictly greater than that value provide discrimination (other thresholds are reported as not applicable).
-2. **Pooled analysis** — each participant contributes exactly one row (their latest observed transition with ≥5-year follow-up or event), so `from_event_num` varies across the sample and the count threshold is genuinely discriminatory.
-
-## Per-Transition: Sweep Count Thresholds
-
-```{r eau-vs-count-per-transition, warning=FALSE, message=FALSE}
-count_thresholds <- c(2L, 3L, 4L)
-
-pertr_metrics_list <- list()
-pertr_roc_plots    <- list()
-pertr_delong_rows  <- list()
-
-for (tr in levels(transitions_long$transition)) {
-
-  tl <- transitions_long %>%
-    filter(transition == tr) %>%
-    mutate(
-      risk_eau = if_else(!is.na(eau_risk) & eau_risk == "high_risk",
-                         "high_risk", "low_risk")
-    )
-
-  # Base (EAU only) ROC for this transition
-  rd_eau <- tl %>%
-    mutate(
-      actual = case_when(
-        had_next_event == 1 ~ 1L,
-        had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
-        TRUE ~ NA_integer_
-      ),
-      predicted = if_else(risk_eau == "high_risk", 1, 0)
-    ) %>%
-    drop_na(actual, predicted)
-
-  if (nrow(rd_eau) < 10 || length(unique(rd_eau$actual)) < 2) next
-
-  ro_eau <- roc(rd_eau$actual, rd_eau$predicted, quiet = TRUE)
-  auc_eau <- round(as.numeric(auc(ro_eau)), 3)
-
-  m_eau <- extract_metrics_grid(ro_eau, "\u22651 subsequent stone event", rd_eau) %>%
-    mutate(
-      Transition      = tr,
-      Risk_Definition = "EAU Only",
-      Count_Threshold = NA_integer_
-    )
-  pertr_metrics_list[[paste(tr, "EAU_Only", sep = "_")]] <- m_eau
-
-  roc_overlay_df <- data.frame(
-    fpr = 1 - ro_eau$specificities,
-    tpr = ro_eau$sensitivities,
-    Definition = paste0("EAU Only (AUC=", auc_eau, ")")
-  )
-
-  # Sweep count thresholds
-  for (ct in count_thresholds) {
-
-    tl2 <- tl %>%
-      mutate(
-        recurrent_count = from_event_num >= ct,
-        risk_combined = if_else(
-          !is.na(eau_risk) & (eau_risk == "high_risk" | recurrent_count),
-          "high_risk", "low_risk"
-        )
-      )
-
-    rd_c <- tl2 %>%
-      mutate(
-        actual = case_when(
-          had_next_event == 1 ~ 1L,
-          had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
-          TRUE ~ NA_integer_
-        ),
-        predicted = if_else(risk_combined == "high_risk", 1, 0)
-      ) %>%
-      drop_na(actual, predicted)
-
-    # If the count threshold does not discriminate within this transition
-    # (i.e. everyone in the transition satisfies or fails it), the combined
-    # classifier collapses to EAU-only or to "all high risk" — record but
-    # mark as not-applicable-for-discrimination.
-    all_count_same <- length(unique(rd_c$predicted)) < 2 &&
-                      all((tl2$from_event_num >= ct) == (tl2$from_event_num[1] >= ct))
-
-    if (nrow(rd_c) < 10 || length(unique(rd_c$actual)) < 2) next
-
-    ro_c <- roc(rd_c$actual, rd_c$predicted, quiet = TRUE)
-    auc_c <- round(as.numeric(auc(ro_c)), 3)
-
-    m_c <- extract_metrics_grid(ro_c,
-                                "\u22651 subsequent stone event",
-                                rd_c) %>%
-      mutate(
-        Transition      = tr,
-        Risk_Definition = paste0("EAU + \u2265", ct, " events"),
-        Count_Threshold = ct
-      )
-    pertr_metrics_list[[paste(tr, "count", ct, sep = "_")]] <- m_c
-
-    roc_overlay_df <- rbind(
-      roc_overlay_df,
-      data.frame(
-        fpr = 1 - ro_c$specificities,
-        tpr = ro_c$sensitivities,
-        Definition = paste0("EAU + \u2265", ct, " events (AUC=", auc_c, ")")
-      )
-    )
-
-    # DeLong
-    dl <- tryCatch(
-      roc.test(ro_eau, ro_c, method = "delong"),
-      error = function(e) NULL
-    )
-    pertr_delong_rows[[paste(tr, ct, sep = "_")]] <- data.frame(
-      Transition      = tr,
-      Count_Threshold = ct,
-      Risk_Definition = paste0("EAU + \u2265", ct, " events"),
-      delong_p        = if (is.null(dl)) NA_real_ else as.numeric(dl$p.value)
-    )
-  }
-
-  # ROC overlay plot
-  p_roc <- ggplot(roc_overlay_df,
-                  aes(x = fpr, y = tpr, colour = Definition)) +
-    geom_line(linewidth = 1) +
-    geom_abline(linetype = "dashed", alpha = 0.5) +
-    coord_equal() +
-    labs(
-      x = "False Positive Rate",
-      y = "True Positive Rate",
-      title = paste0("ROC: Transition ", tr,
-                     " \u2014 EAU vs EAU + prior event count"),
-      colour = "Risk Definition"
-    ) +
-    scale_colour_manual(values = c("#7570b3", "#d95f02", "#1b9e77", "#e7298a")) +
-    theme_bw(base_size = 12) +
-    theme(legend.position = "bottom") +
-    guides(colour = guide_legend(nrow = 2))
-
-  safe_tr <- gsub("\u2192", "to", tr)
-  pertr_roc_plots[[paste0("transition_", safe_tr)]] <- p_roc
-}
-
-pertr_metrics_df <- bind_rows(pertr_metrics_list) %>%
-  mutate(
-    Transition = factor(Transition,
-                        levels = c("1\u21922", "2\u21923", "3\u21924", "4\u21925")),
-    Risk_Definition = factor(
-      Risk_Definition,
-      levels = c("EAU Only",
-                 "EAU + \u22652 events",
-                 "EAU + \u22653 events",
-                 "EAU + \u22654 events")
-    )
-  )
-
-pertr_delong_df <- bind_rows(pertr_delong_rows) %>%
-  mutate(delong_p_fmt = ifelse(is.na(delong_p), NA,
-                               ifelse(delong_p < 0.001, "<0.001",
-                                      sprintf("%.3f", delong_p))))
-
-cat("Per-transition sweep complete:",
-    nrow(pertr_metrics_df), "classifier x transition rows.\n")
-```
-
-### ROC Overlays per Transition
-
-```{r eau-vs-count-roc-plots, fig.width=9, fig.height=7, warning=FALSE}
-for (nm in names(pertr_roc_plots)) {
-  cat("\n#### ", gsub("transition_", "Transition ", nm), "\n")
-  print(pertr_roc_plots[[nm]])
-  cat("\n")
-}
-```
-
-### Metrics Table (Per Transition)
-
-```{r eau-vs-count-metrics-table, warning=FALSE}
-pertr_metrics_df %>%
-  left_join(pertr_delong_df %>%
-              dplyr::select(Transition, Risk_Definition, delong_p_fmt),
-            by = c("Transition", "Risk_Definition")) %>%
-  dplyr::select(Transition, Risk_Definition,
-                N, N_High_Risk, N_Low_Risk,
-                AUC, delong_p_fmt,
-                Sensitivity, Specificity, PPV, NPV) %>%
-  arrange(Transition, Risk_Definition) %>%
-  gt() %>%
-  tab_header(title = "Per-Transition: EAU Only vs EAU + Prior Event Count (no time cutoff)",
-             subtitle = "DeLong p-value compares each combined classifier to EAU Only within the same transition") %>%
-  gt_theme_espn()
-```
-
-## Pooled: One Row per Participant (Latest Transition)
-
-To obtain a single pooled AUC comparison, we take each participant's **latest** available transition — i.e. the highest `from_event_num` for which they have either an observed next event or ≥ `follow_up_years` of follow-up. This preserves independence (one row per participant) while letting `from_event_num` vary.
-
-```{r eau-vs-count-pooled-build, warning=FALSE, message=FALSE}
-pooled_df <- transitions_long %>%
-  mutate(
-    usable = case_when(
-      had_next_event == 1 ~ TRUE,
-      had_next_event == 0 & time_to_next_years >= follow_up_years ~ TRUE,
-      TRUE ~ FALSE
-    )
-  ) %>%
-  filter(usable) %>%
-  group_by(participant_id) %>%
-  arrange(desc(from_event_num)) %>%
-  slice(1) %>%
-  ungroup() %>%
+```{r whole-dataset-classifiers}
+df_whole <- transitions_long %>%
   mutate(
     actual = case_when(
-      had_next_event == 1 ~ 1L,
+      had_next_event == 1                                         ~ 1L,
       had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
-      TRUE ~ NA_integer_
+      TRUE                                                        ~ NA_integer_
     ),
-    risk_eau = if_else(!is.na(eau_risk) & eau_risk == "high_risk",
-                       "high_risk", "low_risk")
+    risk_eau   = (eau_risk == "high_risk"),
+    risk_eau_2 = risk_eau | (from_event_num >= 2),
+    risk_eau_3 = risk_eau | (from_event_num >= 3),
+    risk_eau_4 = risk_eau | (from_event_num >= 4)
   ) %>%
-  drop_na(actual)
+  drop_na(actual, risk_eau)
 
-cat("Pooled analysis N =", nrow(pooled_df),
-    "unique participants\n",
-    "  from_event_num distribution:\n")
-print(table(pooled_df$from_event_num))
+cat("Whole-dataset analysis:\n",
+    "  N transition-rows after censoring filter:", nrow(df_whole), "\n",
+    "  N unique participants:", n_distinct(df_whole$participant_id), "\n",
+    "  Event rate:", round(mean(df_whole$actual) * 100, 1), "%\n", sep = "")
 ```
 
-```{r eau-vs-count-pooled-metrics, warning=FALSE, message=FALSE}
-pooled_metrics_list <- list()
-pooled_roc_list     <- list()
-pooled_roc_overlay  <- data.frame()
-pooled_delong_rows  <- list()
-
-# EAU Only baseline
-rd_eau_p <- pooled_df %>%
-  mutate(predicted = if_else(risk_eau == "high_risk", 1, 0)) %>%
-  drop_na(actual, predicted)
-
-ro_eau_p <- roc(rd_eau_p$actual, rd_eau_p$predicted, quiet = TRUE)
-auc_eau_p <- round(as.numeric(auc(ro_eau_p)), 3)
-
-pooled_roc_list[["EAU Only"]] <- ro_eau_p
-
-pooled_metrics_list[["EAU_Only"]] <-
-  extract_metrics_grid(ro_eau_p,
-                       "\u22651 subsequent stone event",
-                       rd_eau_p) %>%
-  mutate(Risk_Definition = "EAU Only",
-         Count_Threshold = NA_integer_)
-
-pooled_roc_overlay <- rbind(
-  pooled_roc_overlay,
-  data.frame(
-    fpr = 1 - ro_eau_p$specificities,
-    tpr = ro_eau_p$sensitivities,
-    Definition = paste0("EAU Only (AUC=", auc_eau_p, ")")
-  )
+```{r whole-dataset-metrics}
+classifier_specs <- tribble(
+  ~label,             ~col,
+  "EAU only",         "risk_eau",
+  "EAU + ≥2 events", "risk_eau_2",
+  "EAU + ≥3 events", "risk_eau_3",
+  "EAU + ≥4 events", "risk_eau_4"
 )
 
-# Sweep count thresholds
-for (ct in count_thresholds) {
-
-  rd_c_p <- pooled_df %>%
-    mutate(
-      recurrent_count = from_event_num >= ct,
-      risk_combined = if_else(
-        !is.na(eau_risk) & (eau_risk == "high_risk" | recurrent_count),
-        "high_risk", "low_risk"
-      ),
-      predicted = if_else(risk_combined == "high_risk", 1, 0)
-    ) %>%
-    drop_na(actual, predicted)
-
-  if (length(unique(rd_c_p$predicted)) < 2) next
-
-  ro_c_p <- roc(rd_c_p$actual, rd_c_p$predicted, quiet = TRUE)
-  auc_c_p <- round(as.numeric(auc(ro_c_p)), 3)
-
-  pooled_roc_list[[paste0("EAU + \u2265", ct, " events")]] <- ro_c_p
-
-  pooled_metrics_list[[paste0("count_", ct)]] <-
-    extract_metrics_grid(ro_c_p,
-                         "\u22651 subsequent stone event",
-                         rd_c_p) %>%
-    mutate(Risk_Definition = paste0("EAU + \u2265", ct, " events"),
-           Count_Threshold = ct)
-
-  pooled_roc_overlay <- rbind(
-    pooled_roc_overlay,
-    data.frame(
-      fpr = 1 - ro_c_p$specificities,
-      tpr = ro_c_p$sensitivities,
-      Definition = paste0("EAU + \u2265", ct, " events (AUC=", auc_c_p, ")")
-    )
-  )
-
-  dl_p <- tryCatch(
-    roc.test(ro_eau_p, ro_c_p, method = "delong"),
-    error = function(e) NULL
-  )
-  pooled_delong_rows[[as.character(ct)]] <- data.frame(
-    Count_Threshold = ct,
-    Risk_Definition = paste0("EAU + \u2265", ct, " events"),
-    delong_p        = if (is.null(dl_p)) NA_real_ else as.numeric(dl_p$p.value)
-  )
+run_whole_one <- function(label, col) {
+  rd <- df_whole %>%
+    transmute(actual, predicted = as.integer(.data[[col]]))
+  ro <- roc(rd$actual, rd$predicted, quiet = TRUE)
+  list(roc = ro,
+       metrics = extract_metrics_grid(ro, label, rd))
 }
 
-pooled_metrics_df <- bind_rows(pooled_metrics_list) %>%
-  mutate(Risk_Definition = factor(
-    Risk_Definition,
-    levels = c("EAU Only",
-               "EAU + \u22652 events",
-               "EAU + \u22653 events",
-               "EAU + \u22654 events")
-  ))
+results_whole <- pmap(classifier_specs, run_whole_one)
+names(results_whole) <- classifier_specs$label
 
-pooled_delong_df <- bind_rows(pooled_delong_rows) %>%
-  mutate(delong_p_fmt = ifelse(is.na(delong_p), NA,
-                               ifelse(delong_p < 0.001, "<0.001",
-                                      sprintf("%.3f", delong_p))))
+metrics_whole_df <- bind_rows(lapply(results_whole, `[[`, "metrics"))
 
-cat("Pooled sweep complete.\n")
-```
+# DeLong test of each combined classifier vs EAU only
+delong_p_whole <- sapply(c("EAU + ≥2 events",
+                           "EAU + ≥3 events",
+                           "EAU + ≥4 events"), function(lbl) {
+  test <- tryCatch(roc.test(results_whole[["EAU only"]]$roc,
+                            results_whole[[lbl]]$roc,
+                            method = "delong"),
+                   error = function(e) NULL)
+  if (is.null(test)) NA_real_ else as.numeric(test$p.value)
+})
 
-### Pooled ROC Overlay
+metrics_whole_df$delong_p_vs_EAU_only <- c(NA, delong_p_whole)
+metrics_whole_df$delong_p_fmt <- ifelse(
+  is.na(metrics_whole_df$delong_p_vs_EAU_only), "—",
+  ifelse(metrics_whole_df$delong_p_vs_EAU_only < 0.001, "<0.001",
+         sprintf("%.3f", metrics_whole_df$delong_p_vs_EAU_only)))
 
-```{r eau-vs-count-pooled-roc, fig.width=9, fig.height=7, warning=FALSE}
-pooled_roc_plot <- ggplot(pooled_roc_overlay,
-                          aes(x = fpr, y = tpr, colour = Definition)) +
-  geom_line(linewidth = 1) +
-  geom_abline(linetype = "dashed", alpha = 0.5) +
-  coord_equal() +
-  labs(
-    x = "False Positive Rate",
-    y = "True Positive Rate",
-    title = "Pooled ROC: EAU vs EAU + Prior Event Count (no time cutoff)",
-    subtitle = paste0("N = ", nrow(pooled_df),
-                      " (one row per participant, latest observed transition)"),
-    colour = "Risk Definition"
-  ) +
-  scale_colour_manual(values = c("#7570b3", "#d95f02", "#1b9e77", "#e7298a")) +
-  theme_bw(base_size = 12) +
-  theme(legend.position = "bottom") +
-  guides(colour = guide_legend(nrow = 2))
-
-pooled_roc_plot
-```
-
-### Pooled Metrics Table
-
-```{r eau-vs-count-pooled-table, warning=FALSE}
-pooled_metrics_df %>%
-  left_join(pooled_delong_df %>%
-              dplyr::select(Risk_Definition, delong_p_fmt),
-            by = "Risk_Definition") %>%
-  dplyr::select(Risk_Definition,
-                N, N_High_Risk, N_Low_Risk,
-                AUC, delong_p_fmt,
-                Sensitivity, Specificity, PPV, NPV) %>%
-  arrange(Risk_Definition) %>%
+# Display
+metrics_whole_df %>%
+  dplyr::select(Comparison, N, N_High_Risk, N_Low_Risk,
+                AUC_val, AUC_lo, AUC_hi, delong_p_fmt,
+                Sensitivity_val, Specificity_val, PPV_val, NPV_val) %>%
+  mutate(across(where(is.numeric), ~round(.x, 3))) %>%
+  rename(`DeLong p (vs EAU only)` = delong_p_fmt) %>%
   gt() %>%
-  tab_header(title = "Pooled: EAU Only vs EAU + Prior Event Count (no time cutoff)",
-             subtitle = "DeLong p-value compares each combined classifier to EAU Only") %>%
+  tab_header(title = "Whole-Dataset EAU vs EAU + Prior Event Count",
+             subtitle = "All transition-rows; one row per (participant, transition)") %>%
   gt_theme_espn()
+
+# Save CSV for the paper Rmd to consume
+write.csv(metrics_whole_df %>%
+            dplyr::select(Comparison, N, N_High_Risk, N_Low_Risk,
+                          AUC_val, AUC_lo, AUC_hi,
+                          delong_p_vs_EAU_only,
+                          Sensitivity_val, Sensitivity_lo, Sensitivity_hi,
+                          Specificity_val, Specificity_lo, Specificity_hi,
+                          PPV_val, PPV_lo, PPV_hi,
+                          NPV_val, NPV_lo, NPV_hi),
+          "recurrent_disease_whole_dataset_metrics.csv", row.names = FALSE)
+cat("Saved: recurrent_disease_whole_dataset_metrics.csv\n")
 ```
 
-## Save Outputs
+## Whole-Dataset Decision Curve Analysis
 
-```{r eau-vs-count-save, warning=FALSE}
-# Per-transition outputs
-write.csv(
-  pertr_metrics_df %>%
-    left_join(pertr_delong_df %>%
-                dplyr::select(Transition, Risk_Definition, delong_p),
-              by = c("Transition", "Risk_Definition")) %>%
-    dplyr::select(Transition, Risk_Definition, Count_Threshold,
-                  N, N_High_Risk, N_Low_Risk,
-                  AUC_val, AUC_lo, AUC_hi, delong_p,
-                  Sensitivity_val, Sensitivity_lo, Sensitivity_hi,
-                  Specificity_val, Specificity_lo, Specificity_hi,
-                  PPV_val, PPV_lo, PPV_hi,
-                  NPV_val, NPV_lo, NPV_hi),
-  "eau_vs_count_no_timecutoff_per_transition.csv",
-  row.names = FALSE
-)
+```{r whole-dataset-dca, fig.width=10, fig.height=6, warning=FALSE, message=FALSE}
+# DCA on the same `df_whole` used for the EAU vs EAU+events analysis above.
+# Aesthetic mirrors `generate_dca_plot_grid()` defined earlier in this Rmd:
+#   - "Follow-up all" / "Follow-up none" labels (instead of dcurves'
+#     default "Treat all" / "Treat none")
+#   - dashed vertical reference line at 0.2 (20% recurrence threshold)
+#   - x-axis truncated to [0, 0.6]
 
-for (nm in names(pertr_roc_plots)) {
-  ggsave(paste0("eau_vs_count_no_timecutoff_roc_", nm, ".pdf"),
-         plot = pertr_roc_plots[[nm]], width = 9, height = 7)
+if (requireNamespace("dcurves", quietly = TRUE)) {
+
+  df_dca <- df_whole %>%
+    dplyr::transmute(
+      actual                 = factor(actual, levels = c(0, 1)),
+      `EAU only`             = as.integer(risk_eau),
+      `EAU + ≥2 events` = as.integer(risk_eau_2),
+      `EAU + ≥3 events` = as.integer(risk_eau_3),
+      `EAU + ≥4 events` = as.integer(risk_eau_4)
+    )
+
+  dca_obj <- dcurves::dca(
+    actual ~ `EAU only` + `EAU + ≥2 events` + `EAU + ≥3 events` + `EAU + ≥4 events`,
+    data = df_dca,
+    thresholds = seq(0, 0.8, by = 0.01)
+  )
+
+  # Extract the plot's underlying data so we can relabel the reference lines.
+  dca_data <- plot(dca_obj, smooth = FALSE)$data %>%
+    dplyr::mutate(
+      label = dplyr::recode(as.character(label),
+        "Treat All"  = "Follow-up all",
+        "Treat all"  = "Follow-up all",
+        "Treat None" = "Follow-up none",
+        "Treat none" = "Follow-up none"
+      )
+    )
+
+  dca_plot <- ggplot(dca_data,
+                     aes(x = threshold, y = net_benefit, colour = label)) +
+    geom_line(linewidth = 0.8) +
+    geom_vline(xintercept = 0.2, linetype = "dashed",
+               colour = "grey40", linewidth = 0.7) +
+    xlim(c(0, 0.6)) +
+    labs(title = "Whole-Dataset Decision Curve Analysis",
+         subtitle = "Net Benefit vs threshold probability for each classifier on the entire transitions_long sample",
+         x = "Probability of Recurrence Threshold",
+         y = "Net Benefit",
+         colour = NULL) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "bottom",
+          plot.title = element_text(face = "bold"))
+
+  print(dca_plot)
+  ggsave("recurrent_disease_whole_dataset_dca.pdf",
+         plot = dca_plot, width = 10, height = 6)
+  cat("Saved: recurrent_disease_whole_dataset_dca.pdf\n")
+
+} else {
+  cat("dcurves package not installed; skipping whole-dataset DCA.\n")
 }
-
-# Pooled outputs
-write.csv(
-  pooled_metrics_df %>%
-    left_join(pooled_delong_df %>%
-                dplyr::select(Risk_Definition, delong_p),
-              by = "Risk_Definition") %>%
-    dplyr::select(Risk_Definition, Count_Threshold,
-                  N, N_High_Risk, N_Low_Risk,
-                  AUC_val, AUC_lo, AUC_hi, delong_p,
-                  Sensitivity_val, Sensitivity_lo, Sensitivity_hi,
-                  Specificity_val, Specificity_lo, Specificity_hi,
-                  PPV_val, PPV_lo, PPV_hi,
-                  NPV_val, NPV_lo, NPV_hi),
-  "eau_vs_count_no_timecutoff_pooled.csv",
-  row.names = FALSE
-)
-
-ggsave("eau_vs_count_no_timecutoff_pooled_roc.pdf",
-       plot = pooled_roc_plot, width = 9, height = 7)
-
-cat("EAU vs count-threshold (no time cutoff) outputs saved.\n")
 ```
 
 # Does Restricting Inter-Event Time Attenuate the Recurrent-Disease Effect?
@@ -2940,8 +2891,6 @@ attenuate_delong_df %>%
 ```
 
 ## Subgroup Test: Is `from_event_num ≥ 2` Still Informative Among Long-Gap Recurrers?
-
-Within a subsample consisting of **first-event cases + distant-recurrence cases only**, we test whether the event-count classifier retains predictive value. If the confidence interval for AUC crosses 0.5, the "attenuates" wording is supported.
 
 ```{r attenuate-subgroup, warning=FALSE, message=FALSE}
 attenuate_subgroup_list <- list()
