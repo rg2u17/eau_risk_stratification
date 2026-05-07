@@ -656,6 +656,23 @@ run_grid_search <- function(starting_point_col, sp_label) {
   all_km_plots  <- list()
   all_dca_plots <- list()
 
+  # ---- EAU-only baseline (no inter-event time modifier) ----
+  # Adds rows with Time_Cutoff_Months = NA so Figure 1 can show a
+  # "no short-time" comparator for the 2nd/3rd/4th events.
+  ds_eau_only <- build_analysis_dataset(starting_point_col,
+                                        inter_event_cutoff_months = NULL)
+  if (nrow(ds_eau_only) >= 20) {
+    for (i in seq_along(recurrence_thresholds)) {
+      roc_data <- prep_roc_grid(ds_eau_only, recurrence_thresholds[i])
+      if (nrow(roc_data) < 10 || length(unique(roc_data$actual)) < 2) next
+      roc_obj <- roc(roc_data$actual, roc_data$predicted, quiet = TRUE)
+      m <- extract_metrics_grid(roc_obj, recurrence_labels[i], roc_data)
+      m$Starting_Point     <- sp_label
+      m$Time_Cutoff_Months <- NA_real_
+      all_metrics <- rbind(all_metrics, m)
+    }
+  }
+
   for (cutoff in time_cutoffs_months) {
     ds <- build_analysis_dataset(starting_point_col,
                                  inter_event_cutoff_months = cutoff)
@@ -838,18 +855,27 @@ cat("all_metrics_combined: ", nrow(all_metrics_combined), " rows\n", sep = "")
 ## AUC
 
 ```{r heatmap, fig.width=12, fig.height=8, warning=FALSE}
-# Parse AUC values for heatmap
+# Parse AUC values for heatmap.
+# Includes the 1st event (Starting_Point == "Index Date") and the no-cutoff
+# baseline rows for 2nd/3rd/4th events (Time_Cutoff_Months == NA), so the
+# heatmap reports the EAU-only classifier alongside each "Short Time" cutoff.
+# Nomenclature matches Figure 1: First/Second/Third/Fourth Event on the
+# y-axis and "No Short time" as the leftmost x column.
 heatmap_data <- all_metrics_combined %>%
-  filter(!is.na(Time_Cutoff_Months), Starting_Point != "Index Date") %>%
   mutate(
     AUC_numeric = AUC_val,
-    Time_Cutoff_label = paste0("\u2264", Time_Cutoff_Months, "mo")
+    Time_Cutoff_label = ifelse(
+      is.na(Time_Cutoff_Months),
+      "No Short time",
+      paste0("\u2264", Time_Cutoff_Months, "mo")
+    )
   ) %>%
   mutate(
     Time_Cutoff_label = factor(Time_Cutoff_label,
                                levels = c(
+                                 "No Short time",
                                  "≤6mo",
-                                  "≤9mo",
+                                 "≤9mo",
                                  "≤12mo",
                                  "≤15mo",
                                  "≤18mo",
@@ -857,12 +883,14 @@ heatmap_data <- all_metrics_combined %>%
                                  "≤24mo"
                                )),
     Starting_Point = case_when(
-      Starting_Point == "Second Event" ~ "Second Symptomatic Episode",
-      Starting_Point == "Third Event" ~ "Third Symptomatic Episode",
-      Starting_Point == "Fourth Event" ~ "Fourth Symptomatic Episode"
-    ) %>% factor(levels = c("Fourth Symptomatic Episode",
-                            "Third Symptomatic Episode",
-                            "Second Symptomatic Episode")),
+      Starting_Point == "Index Date"   ~ "First Event",
+      Starting_Point == "Second Event" ~ "Second Event",
+      Starting_Point == "Third Event"  ~ "Third Event",
+      Starting_Point == "Fourth Event" ~ "Fourth Event"
+    ) %>% factor(levels = c("Fourth Event",
+                            "Third Event",
+                            "Second Event",
+                            "First Event")),
     Comparison = factor(Comparison, levels = c("\u22651 subsequent stone events",
                                                "\u22652 subsequent stone events",
                                                "\u22653 subsequent stone events"))
@@ -881,7 +909,7 @@ if (nrow(heatmap_data) > 0) {
     scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                          midpoint = median_auc, name = "AUC", limits = c(min_auc, max_auc)) +
     labs(x = "Threshold for 'Short Time' Definition",
-         y = "Starting Point",
+         y = "Event Presentation",
          title = "AUC",
          subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
     theme_bw(base_size = 11) +
@@ -907,7 +935,7 @@ if (nrow(heatmap_data) > 0) {
     scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                          midpoint = median_sens, name = "Sensitivity", limits = c(min_sens, max_sens)) +
     labs(x = "Threshold for 'Short Time' Definition",
-         y = "Starting Point",
+         y = "Event Presentation",
          title = "Sensitivity",
          subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
     theme_bw(base_size = 11) +
@@ -934,7 +962,7 @@ if (nrow(heatmap_data) > 0) {
     scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                          midpoint = median_spec, name = "Specificity", limits = c(min_spec, max_spec)) +
     labs(x = "Threshold for 'Short Time' Definition",
-         y = "Starting Point",
+         y = "Event Presentation",
          title = "Specificity",
          subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
     theme_bw(base_size = 11) +
@@ -960,7 +988,7 @@ if (nrow(heatmap_data) > 0) {
     scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                          midpoint = median_ppv, name = "PPV", limits = c(min_ppv, max_ppv)) +
     labs(x = "Threshold for 'Short Time' Definition",
-         y = "Starting Point",
+         y = "Event Presentation",
          title = "Positive Predictive Value",
          subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
     theme_bw(base_size = 11) +
@@ -986,7 +1014,7 @@ if (nrow(heatmap_data) > 0) {
     scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                          midpoint = median_npv, name = "NPV", limits = c(min_npv, max_npv)) +
     labs(x = "Threshold for 'Short Time' Definition",
-         y = "Starting Point",
+         y = "Event Presentation",
          title = "Negative Predictive Value",
          subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
     theme_bw(base_size = 11) +
@@ -1067,7 +1095,7 @@ high_risk_likelihood <- ggplot(lr_high,
   scale_fill_gradient2(low = "#1a9850", mid = "yellow", high = "red3",
                        midpoint = median_hr, name = "% Recurred") +
   labs(x = "Threshold for 'Short Time' Definition",
-       y = "Starting Point",
+       y = "Event Presentation",
        title = "Likelihood of Recurrence: High-Risk Group",
        subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
   theme_bw(base_size = 11) +
@@ -1088,7 +1116,7 @@ low_risk_likelihood <- ggplot(lr_low,
   scale_fill_gradient2(low = "#1a9850", mid = "yellow", high = "red3",
                        midpoint = median_lr, name = "% Recurred") +
   labs(x = "Threshold for 'Short Time' Definition",
-       y = "Starting Point",
+       y = "Event Presentation",
        title = "Likelihood of Recurrence: Low-Risk Group",
        subtitle = "            Subsequent Symptomatic Events needed for 'Recurrence' Definition") +
   theme_bw(base_size = 11) +
@@ -1384,6 +1412,51 @@ km_rates_df <- data.frame(
 write.csv(km_rates_df, "virtual_stone_clinic_recurrence_rates.csv", row.names = FALSE)
 cat("Saved: virtual_stone_clinic_recurrence_rates.csv\n")
 print(km_rates_df)
+```
+
+## Inter-event time summary by transition
+
+Descriptive statistics of the time between consecutive stone events, computed
+on the full dataset (no 5-year follow-up cap). Used as a supplementary table
+showing the actual inter-event time distribution per transition — informative
+because the attenuation analyses show that the *count* of prior events
+discriminates better than any binary cut-off on inter-event time.
+
+```{r inter-event-time-summary}
+inter_event_summary <- bind_rows(
+  dates_detailed %>% dplyr::filter(!is.na(first_date)) %>%
+    dplyr::transmute(transition = "1→2",
+                     months = as.numeric(first_date - index_date) / 30.44),
+  dates_detailed %>% dplyr::filter(!is.na(second_date)) %>%
+    dplyr::transmute(transition = "2→3",
+                     months = as.numeric(second_date - first_date) / 30.44),
+  dates_detailed %>% dplyr::filter(!is.na(third_date)) %>%
+    dplyr::transmute(transition = "3→4",
+                     months = as.numeric(third_date - second_date) / 30.44),
+  dates_detailed %>% dplyr::filter(!is.na(fourth_date)) %>%
+    dplyr::transmute(transition = "4→5",
+                     months = as.numeric(fourth_date - third_date) / 30.44)
+) %>%
+  dplyr::filter(months > 0) %>%
+  dplyr::group_by(transition) %>%
+  dplyr::summarise(
+    n              = dplyr::n(),
+    mean_months    = mean(months, na.rm = TRUE),
+    sd_months      = sd(months, na.rm = TRUE),
+    median_months  = median(months, na.rm = TRUE),
+    q1_months      = quantile(months, 0.25, na.rm = TRUE),
+    q3_months      = quantile(months, 0.75, na.rm = TRUE),
+    pct_within_6mo = mean(months <= 6,  na.rm = TRUE) * 100,
+    pct_within_1yr = mean(months <= 12, na.rm = TRUE) * 100,
+    pct_within_2yr = mean(months <= 24, na.rm = TRUE) * 100,
+    pct_within_5yr = mean(months <= 60, na.rm = TRUE) * 100,
+    .groups        = "drop"
+  ) %>%
+  mutate(Cohort = "UKB")
+
+write.csv(inter_event_summary, "inter_event_time_summary.csv", row.names = FALSE)
+cat("Saved: inter_event_time_summary.csv\n")
+print(inter_event_summary)
 ```
 
 ## KM by Event Number
@@ -2548,6 +2621,9 @@ column has been re-ascertained AS OF the starting event of that transition
 (via the per-event `pmhx_cleaned_1/2/3/4` tibbles built earlier).This simulates a kidney stone clinic where stone formers will have a variety of previous events (first time → highly recurrent)
 
 ```{r whole-dataset-classifiers}
+# Short-time flags: prior_gap_months captures the gap leading INTO from_date
+# (NA for from_event_num == 1). The short-time modifier only fires for
+# transitions that actually have a prior gap.
 df_whole <- transitions_long %>%
   mutate(
     actual = case_when(
@@ -2555,10 +2631,23 @@ df_whole <- transitions_long %>%
       had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
       TRUE                                                        ~ NA_integer_
     ),
-    risk_eau   = (eau_risk == "high_risk"),
-    risk_eau_2 = risk_eau | (from_event_num >= 2),
-    risk_eau_3 = risk_eau | (from_event_num >= 3),
-    risk_eau_4 = risk_eau | (from_event_num >= 4)
+    st6  = !is.na(prior_gap_months) & prior_gap_months <= 6,
+    st24 = !is.na(prior_gap_months) & prior_gap_months <= 24,
+    risk_eau          = (eau_risk == "high_risk"),
+    # EAU + Short Time only (no recurrent-disease modifier)
+    risk_eau_st6      = risk_eau | st6,
+    risk_eau_st24     = risk_eau | st24,
+    # EAU + Recurrent Disease only (existing)
+    risk_eau_2        = risk_eau | (from_event_num >= 2),
+    risk_eau_3        = risk_eau | (from_event_num >= 3),
+    risk_eau_4        = risk_eau | (from_event_num >= 4),
+    # EAU + Recurrent Disease + Short Time
+    risk_eau_2_st6    = risk_eau_2 | st6,
+    risk_eau_2_st24   = risk_eau_2 | st24,
+    risk_eau_3_st6    = risk_eau_3 | st6,
+    risk_eau_3_st24   = risk_eau_3 | st24,
+    risk_eau_4_st6    = risk_eau_4 | st6,
+    risk_eau_4_st24   = risk_eau_4 | st24
   ) %>%
   drop_na(actual, risk_eau)
 
@@ -2570,56 +2659,176 @@ cat("Whole-dataset analysis:\n",
 
 ```{r whole-dataset-metrics}
 classifier_specs <- tribble(
-  ~label,             ~col,
-  "EAU only",         "risk_eau",
-  "EAU + ≥2 events", "risk_eau_2",
-  "EAU + ≥3 events", "risk_eau_3",
-  "EAU + ≥4 events", "risk_eau_4"
+  ~label,                                       ~col,
+  "EAU only",                                   "risk_eau",
+  "EAU + Short Time ≤6mo",                     "risk_eau_st6",
+  "EAU + Short Time ≤24mo",                    "risk_eau_st24",
+  "EAU + ≥2 events",                           "risk_eau_2",
+  "EAU + ≥2 events + Short Time ≤6mo",        "risk_eau_2_st6",
+  "EAU + ≥2 events + Short Time ≤24mo",       "risk_eau_2_st24",
+  "EAU + ≥3 events",                           "risk_eau_3",
+  "EAU + ≥3 events + Short Time ≤6mo",        "risk_eau_3_st6",
+  "EAU + ≥3 events + Short Time ≤24mo",       "risk_eau_3_st24",
+  "EAU + ≥4 events",                           "risk_eau_4",
+  "EAU + ≥4 events + Short Time ≤6mo",        "risk_eau_4_st6",
+  "EAU + ≥4 events + Short Time ≤24mo",       "risk_eau_4_st24"
 )
 
-run_whole_one <- function(label, col) {
-  rd <- df_whole %>%
-    transmute(actual, predicted = as.integer(.data[[col]]))
-  ro <- roc(rd$actual, rd$predicted, quiet = TRUE)
-  list(roc = ro,
-       metrics = extract_metrics_grid(ro, label, rd))
+# ---------------------------------------------------------------------------
+# Cluster-bootstrap inference (PATIENT-LEVEL clustering)
+#
+# `transitions_long` contains one row per (participant × transition) — so
+# multiple rows from the same patient are NOT independent. Standard ROC/AUC
+# inference (DeLong / Wilson / Wald) treats every row as independent and
+# therefore underestimates SEs. We replace those with a non-parametric
+# cluster bootstrap that resamples PARTICIPANTS (not transitions) with
+# replacement, recomputes every metric on each resample, and derives:
+#   - 95% percentile CIs for AUC, sensitivity, specificity, PPV, NPV
+#   - pairwise two-sided p-values for AUC differences between classifiers
+#     (using the SAME bootstrap iterations across classifiers so the
+#     within-iteration AUC pairs preserve their correlation)
+#
+# Computational cost: B × 12 binary AUC computations + four binary
+# proportion computations per classifier ~ 12,000 evaluations for B = 1000.
+# Each evaluation is O(N) with a closed-form Mann-Whitney AUC for a binary
+# predictor, so the whole loop runs in <60 seconds.
+# ---------------------------------------------------------------------------
+
+B_BOOT <- 1000   # number of cluster-bootstrap iterations
+set.seed(42)
+
+# Closed-form metrics for a BINARY predictor / binary outcome.
+fast_binary_metrics <- function(actual, predicted) {
+  pos <- actual == 1L
+  pp  <- predicted == 1L
+  tp <- sum(pos & pp);  fp <- sum(!pos & pp)
+  tn <- sum(!pos & !pp); fn <- sum(pos & !pp)
+  n_pos <- tp + fn; n_neg <- fp + tn
+  sens <- if (n_pos > 0) tp / n_pos else NA_real_
+  spec <- if (n_neg > 0) tn / n_neg else NA_real_
+  ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+  npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+  if (n_pos == 0 || n_neg == 0) {
+    auc <- NA_real_
+  } else {
+    # Mann-Whitney AUC for a binary classifier: 0.5 * (sens + spec).
+    # Equivalent to (#concordant + 0.5 * #ties) / (N+ * N-).
+    auc <- 0.5 * (sens + spec)
+  }
+  c(auc = auc, sens = sens, spec = spec, ppv = ppv, npv = npv)
 }
 
-results_whole <- pmap(classifier_specs, run_whole_one)
-names(results_whole) <- classifier_specs$label
+# --- Pre-compute predictions matrix and per-participant row indices ---
+pred_mat <- vapply(classifier_specs$col, function(cn) as.integer(df_whole[[cn]]),
+                   integer(nrow(df_whole)))
+colnames(pred_mat) <- classifier_specs$label
+actual_vec <- as.integer(df_whole$actual)
+pid_int    <- as.integer(factor(df_whole$participant_id))
+unique_pids <- seq_len(max(pid_int))
+pid_to_rows <- split(seq_len(nrow(df_whole)), pid_int)
+n_pids <- length(unique_pids)
 
-metrics_whole_df <- bind_rows(lapply(results_whole, `[[`, "metrics"))
+# --- Point estimates on the full dataset ---
+point_metrics <- t(vapply(classifier_specs$label,
+                          function(lbl) fast_binary_metrics(actual_vec, pred_mat[, lbl]),
+                          numeric(5)))
+rownames(point_metrics) <- classifier_specs$label
 
-# DeLong test of each combined classifier vs EAU only
-delong_p_whole <- sapply(c("EAU + ≥2 events",
-                           "EAU + ≥3 events",
-                           "EAU + ≥4 events"), function(lbl) {
-  test <- tryCatch(roc.test(results_whole[["EAU only"]]$roc,
-                            results_whole[[lbl]]$roc,
-                            method = "delong"),
-                   error = function(e) NULL)
-  if (is.null(test)) NA_real_ else as.numeric(test$p.value)
-})
+# --- Cluster-bootstrap loop ---
+cat("Cluster-bootstrap for whole-dataset metrics (B = ", B_BOOT,
+    "iterations)...\n", sep = "")
+boot_auc  <- matrix(NA_real_, nrow = B_BOOT, ncol = nrow(classifier_specs),
+                    dimnames = list(NULL, classifier_specs$label))
+boot_sens <- boot_spec <- boot_ppv <- boot_npv <- boot_auc
 
-metrics_whole_df$delong_p_vs_EAU_only <- c(NA, delong_p_whole)
+t0 <- Sys.time()
+for (b in seq_len(B_BOOT)) {
+  sampled_pids <- sample.int(n_pids, n_pids, replace = TRUE)
+  rows <- unlist(pid_to_rows[sampled_pids], use.names = FALSE)
+  a <- actual_vec[rows]
+  if (length(unique(a)) < 2) next
+  for (j in seq_len(nrow(classifier_specs))) {
+    m <- fast_binary_metrics(a, pred_mat[rows, j])
+    boot_auc [b, j] <- m["auc"]
+    boot_sens[b, j] <- m["sens"]
+    boot_spec[b, j] <- m["spec"]
+    boot_ppv [b, j] <- m["ppv"]
+    boot_npv [b, j] <- m["npv"]
+  }
+}
+cat("  elapsed:", round(as.numeric(difftime(Sys.time(), t0, units = "secs")), 1),
+    "sec\n")
+
+# --- Per-classifier 95% percentile CIs from the bootstrap distributions ---
+ci_lo <- function(M) apply(M, 2, quantile, probs = 0.025, na.rm = TRUE)
+ci_hi <- function(M) apply(M, 2, quantile, probs = 0.975, na.rm = TRUE)
+
+n_total      <- nrow(df_whole)
+n_high_risk  <- sapply(classifier_specs$col, function(cn) sum(df_whole[[cn]], na.rm = TRUE))
+n_low_risk   <- n_total - n_high_risk
+
+# --- Pairwise cluster-bootstrap p-values: HC same iterations preserves cov ---
+# Two-sided p = 2 * min((#pos_diffs + 1)/(B+1), (#neg_diffs + 1)/(B+1)).
+# The +1 / (B+1) correction prevents reporting an exact 0.
+boot_p_diff <- function(d) {
+  d <- d[is.finite(d)]
+  if (length(d) < 50) return(NA_real_)
+  Bv <- length(d)
+  2 * min((sum(d > 0) + 1) / (Bv + 1),
+          (sum(d < 0) + 1) / (Bv + 1))
+}
+
+# vs-EAU-only p-values for the metrics CSV
+non_baseline_labels <- setdiff(classifier_specs$label, "EAU only")
+delong_p_whole <- vapply(non_baseline_labels, function(lbl) {
+  boot_p_diff(boot_auc[, lbl] - boot_auc[, "EAU only"])
+}, numeric(1))
+
+# --- Build metrics_whole_df with cluster-bootstrap CIs ---
+metrics_whole_df <- data.frame(
+  Comparison      = classifier_specs$label,
+  N               = n_total,
+  N_High_Risk     = unname(n_high_risk),
+  N_Low_Risk      = unname(n_low_risk),
+  AUC_val         = point_metrics[, "auc"],
+  AUC_lo          = ci_lo(boot_auc),
+  AUC_hi          = ci_hi(boot_auc),
+  delong_p_vs_EAU_only = c(NA_real_, delong_p_whole[non_baseline_labels]),
+  Sensitivity_val = point_metrics[, "sens"],
+  Sensitivity_lo  = ci_lo(boot_sens),
+  Sensitivity_hi  = ci_hi(boot_sens),
+  Specificity_val = point_metrics[, "spec"],
+  Specificity_lo  = ci_lo(boot_spec),
+  Specificity_hi  = ci_hi(boot_spec),
+  PPV_val         = point_metrics[, "ppv"],
+  PPV_lo          = ci_lo(boot_ppv),
+  PPV_hi          = ci_hi(boot_ppv),
+  NPV_val         = point_metrics[, "npv"],
+  NPV_lo          = ci_lo(boot_npv),
+  NPV_hi          = ci_hi(boot_npv),
+  stringsAsFactors = FALSE
+)
 metrics_whole_df$delong_p_fmt <- ifelse(
   is.na(metrics_whole_df$delong_p_vs_EAU_only), "—",
   ifelse(metrics_whole_df$delong_p_vs_EAU_only < 0.001, "<0.001",
          sprintf("%.3f", metrics_whole_df$delong_p_vs_EAU_only)))
 
-# Display
+# --- Display ---
 metrics_whole_df %>%
   dplyr::select(Comparison, N, N_High_Risk, N_Low_Risk,
                 AUC_val, AUC_lo, AUC_hi, delong_p_fmt,
                 Sensitivity_val, Specificity_val, PPV_val, NPV_val) %>%
   mutate(across(where(is.numeric), ~round(.x, 3))) %>%
-  rename(`DeLong p (vs EAU only)` = delong_p_fmt) %>%
+  rename(`Cluster-boot p (vs EAU only)` = delong_p_fmt) %>%
   gt() %>%
   tab_header(title = "Whole-Dataset EAU vs EAU + Prior Event Count",
-             subtitle = "All transition-rows; one row per (participant, transition)") %>%
+             subtitle = paste0("Cluster-bootstrap (B = ", B_BOOT,
+                               ", patients resampled). All transition-rows.")) %>%
   gt_theme_espn()
 
-# Save CSV for the paper Rmd to consume
+# --- Save metrics CSV ---
+# Column name `delong_p_vs_EAU_only` retained for backward-compat with the
+# paper Rmd; the values are now cluster-bootstrap p-values.
 write.csv(metrics_whole_df %>%
             dplyr::select(Comparison, N, N_High_Risk, N_Low_Risk,
                           AUC_val, AUC_lo, AUC_hi,
@@ -2630,6 +2839,26 @@ write.csv(metrics_whole_df %>%
                           NPV_val, NPV_lo, NPV_hi),
           "recurrent_disease_whole_dataset_metrics.csv", row.names = FALSE)
 cat("Saved: recurrent_disease_whole_dataset_metrics.csv\n")
+
+# --- Pairwise cluster-bootstrap p-values for ALL C(12,2) = 66 classifier pairs ---
+# Same bootstrap iterations used for every pair → preserves within-iteration
+# correlation between classifier AUCs (analogous to paired DeLong).
+pair_grid <- t(combn(classifier_specs$label, 2))
+pairwise_p <- vapply(seq_len(nrow(pair_grid)), function(k) {
+  boot_p_diff(boot_auc[, pair_grid[k, 1]] - boot_auc[, pair_grid[k, 2]])
+}, numeric(1))
+
+pairwise_delong <- data.frame(
+  classifier_a = pair_grid[, 1],
+  classifier_b = pair_grid[, 2],
+  delong_p     = pairwise_p,    # column name retained for paper-Rmd compat
+  stringsAsFactors = FALSE
+)
+write.csv(pairwise_delong,
+          "recurrent_disease_whole_dataset_pairwise_delong.csv",
+          row.names = FALSE)
+cat("Saved: recurrent_disease_whole_dataset_pairwise_delong.csv (",
+    nrow(pairwise_delong), "pairs, cluster-bootstrap p-values)\n")
 ```
 
 ## Whole-Dataset Decision Curve Analysis
@@ -2676,10 +2905,9 @@ if (requireNamespace("dcurves", quietly = TRUE)) {
     geom_vline(xintercept = 0.2, linetype = "dashed",
                colour = "grey40", linewidth = 0.7) +
     xlim(c(0, 0.6)) +
-    labs(title = "Whole-Dataset Decision Curve Analysis",
-         subtitle = "Net Benefit vs threshold probability for each classifier on the entire transitions_long sample",
-         x = "Probability of Recurrence Threshold",
-         y = "Net Benefit",
+    labs(title  = "Whole-Dataset Decision Curve Analysis",
+         x      = "Probability of Recurrence Threshold",
+         y      = "Net Benefit",
          colour = NULL) +
     theme_bw(base_size = 11) +
     theme(legend.position = "bottom",
