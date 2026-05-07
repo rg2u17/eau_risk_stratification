@@ -37,9 +37,9 @@ library(ggh4x)
 \newpage
 # Tables
 
-## Table 1. EAU Definition of High Risk Stone Former
+## Table 1. High Risk Conditions as per EAU Urolithiasis Guidelines
 
-EAU definition of high risk stone former -- i.e. if an individual has any one of the scenarios/conditions detailed in this table then they are labelled as high risk.
+List of conditions associated with 'high risk' disease as per EAU Urolithiasis guidelines i.e. if an individual has any one of the scenarios/conditions detailed in this table then they are labelled as high risk. Availability in each Biobank is detailed. UKB = UK Biobank, AoU = All of Us.
 
 \begin{landscape}
 \begin{longtable}{p{3.5cm}p{8cm}cc}
@@ -51,7 +51,7 @@ EAU definition of high risk stone former -- i.e. if an individual has any one of
 \textbf{Category} & \textbf{Factor} & \textbf{Availability in UKB} & \textbf{Availability in AoU} \\
 \midrule
 \endhead
-\multirow{8}{*}{\makecell[l]{General factors}} & Early onset of urolithiasis (especially children and teenagers) & Age at first stone $<$25 & Age at first stone $<$25 \\
+\multirow{8}{*}{\makecell[l]{General factors}} & Early onset of urolithiasis (especially children and teenagers) & Age at first stone <25 & Age at first stone <25 \\
 & Familial stone formation & Data not available & Data not available \\
 & Recurrent stone formers & Available & Available \\
 & Short time since last stone episode & Available & Available \\
@@ -97,7 +97,7 @@ EAU definition of high risk stone former -- i.e. if an individual has any one of
 
 ## Table 2. Demographics
 
-Demographics table for those with clinically significant kidney stone disease within the two Biobanks (UK Biobank and All of Us) utilised for the present study.
+Demographics table for those with clinically significant kidney stone disease within the two Biobanks utilised for the present study. \textsuperscript{\#} At time of first stone event. * Derived from Kaplan-Meier survival curves on the 'any event' "virtual stone clinic" dataset (every participant contributes one row per transition they reach: 1→2, 2→3, 3→4, 4→5).
 
 ```{r table2-vsc-rates, include=FALSE}
 # Load the virtual-stone-clinic KM rates (one row per horizon × cohort)
@@ -148,13 +148,11 @@ vsc_10_aou <- fmt_vsc(aou_vsc, 10)
 \end{tabular}
 \end{table}
 
-\textsuperscript{\#} At time of first stone event. * Derived from Kaplan-Meier survival curves on the entire pooled "virtual stone clinic" dataset (every participant contributes one row per transition they reach: 1→2, 2→3, 3→4, 4→5), without risk stratification.
-
 \newpage
 
-## Supplementary Table 1. Numbers of Patients with High-Risk Characteristics
+## Supplementary Table 1. Numbers of Patients with High-Risk Characteristics at First event
 
-Numbers of patients with High-Risk characteristics at time of first stone event. NB -- patients can have more than one characteristic.
+Numbers of patients with High-Risk characteristics at time of first stone event - for each analysis risk status is (re)ascertained at the point of presentation. NB -- patients can have more than one characteristic.
 
 \begin{landscape}
 \begin{longtable}{p{3.5cm}p{8cm}cc}
@@ -212,84 +210,282 @@ Numbers of patients with High-Risk characteristics at time of first stone event.
 
 \newpage
 
-## Supplementary Table 2. Map of Analyses Performed
+## Supplementary Table 2. Analyses Performed
 
-Map of the data handling, additional sensitivity analyses and outcome analyses performed at each starting point. *X* indicates the analysis was performed; *N/A* means the analysis is not applicable to that starting point. Inter-event ("short time") gap and "recurrent disease" definitions only apply to non-index transitions. The KM, DCA and ROC columns share a common outcome definition (per row), described in the **Outcome description** column.
+Explanatory table of additional sensitivity analyses and outcome analyses performed at each starting point. *X* indicates the analysis was performed; *N/A* means the analysis is not applicable to that starting point. The "Short time" between events and "recurrent disease" definitions only apply from 2nd event onwards.For the "recurrent disease" the prior events includes the current stone event.
 
-\begin{landscape}
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{p{2.6cm}|ccc|p{2.4cm}p{1.9cm}|ccc|p{4.6cm}}
+\begin{tabular}{p{1.5cm}|p{2.4cm}|p{2.4cm}p{1.9cm}|ccc|p{4.6cm}}
 \toprule
-\textbf{Starting point}
-& \multicolumn{3}{c|}{\textbf{Data Handling}}
-& \multicolumn{2}{c|}{\textbf{Additional Analyses}}
+\textbf{\makecell[l]{Analysis\\type}}
+& \textbf{Starting point}
+& \multicolumn{2}{c|}{\textbf{Definition Exploration}}
 & \multicolumn{3}{c|}{\textbf{Outcome Analyses}}
 & \textbf{Outcome description} \\
-& Unmatched & Matched & \makecell{Subset by\\Intervention}
-& \makecell{`Short time'\\definition} & \makecell{`Recurrent'\\disease}
+&
+& \makecell{`Short time'\\definition} & \makecell{`Recurrent'\\disease\\definition}
 & \textbf{KM} & \textbf{DCA} & \textbf{ROC} & \\
 \midrule
-1\textsuperscript{st}/Index event
-& X & X & X
+\multirow{4}{*}{Per event}
+& 1\textsuperscript{st} event
 & N/A & N/A
 & X & X & X
-& \makecell[l]{KM: 1\textsuperscript{st} subsequent event\\(time-to-event, all included).\\DCA + ROC: 1, 2, 3 subsequent\\events (binary; censored\\<5y removed).} \\
-\midrule
-2\textsuperscript{nd} event
-& X & X &
-& \makecell{6 → 24 mo,\\3-mo increments} & \makecell{2, 3, 4\\prior events}
-& X & X & X & As above \\
-\midrule
-3\textsuperscript{rd} event
-& X & X &
-& \makecell{6 → 24 mo,\\3-mo increments} & \makecell{2, 3, 4\\prior events}
-& X & X & X & As above \\
-\midrule
-4\textsuperscript{th} event
-& X & X &
-& \makecell{6 → 24 mo,\\3-mo increments} & \makecell{2, 3, 4\\prior events}
-& X & X & X & As above \\
-\midrule
-\makecell[l]{Any stone\\presentation\\(1\textsuperscript{st} → 4\textsuperscript{th})}
-& X & X &
-& \makecell{6 → 24 mo,\\3-mo increments} & \makecell{2, 3, 4\\prior events}
-& X & X & X & As above \\
+& \multirow{5}{=}{\textbf{KM:} 1\textsuperscript{st} \textbf{subsequent} event (time-to-event, all included).\\[4pt]\textbf{DCA + ROC:} 1, 2, 3 \textbf{subsequent} events (binary; censored <5y removed).} \\
+\cmidrule(lr){2-7}
+& 2\textsuperscript{nd} event
+& \multirow{4}{=}{\centering 6 → 24 mo, 3-mo increments}
+& \multirow{4}{=}{\centering 2, 3, 4 \textbf{prior} events}
+& X & X & X & \\
+\cmidrule(lr){2-2}\cmidrule(lr){5-7}
+& 3\textsuperscript{rd} event
+& & & X & X & X & \\
+\cmidrule(lr){2-2}\cmidrule(lr){5-7}
+& 4\textsuperscript{th} event
+& & & X & X & X & \\
+\cmidrule(lr){1-2}\cmidrule(lr){5-7}
+Any event
+& \makecell[l]{Any stone\\presentation\\(1\textsuperscript{st} → 4\textsuperscript{th})}
+& & & X & X & X & \\
 \bottomrule
 \end{tabular}
 \end{table}
-\end{landscape}
 
 \newpage
 
-## Supplementary Table 3. Prognostic Accuracy – Matched Datasets
+## Supplementary Table 3. Inter-event time by transition
 
-Prognostic accuracy statistics for the EAU 'high-risk' definition for datasets matched by age at first stone, sex, risk status and initial presentation/intervention. DeLong's test used to compare between the same definition of 'recurrence'.
+Descriptive statistics of the time between consecutive stone events at each transition, derived from Kaplan Meier plots of the entire transitions dataset. The attenuation analyses (Sup Figs 39–41) show that the *count* of prior events discriminates better than any binary cut-off on "short-time" between stone events.N = number of participants who experienced the *subsequent* event of each transition (e.g. second event after first event). The "Within X" rows are the cumulative proportion of patients (who recurred) whose next event occurred within the stated window.
+
+```{r supp-table-3-inter-event, include=FALSE}
+# Robust loader: if either CSV is missing, use an empty data frame with the
+# expected schema so the inline `r ...` calls below still render "--" rather
+# than blowing up the knit.
+.iet_schema <- data.frame(
+  transition = character(0), n = integer(0),
+  mean_months = numeric(0), sd_months = numeric(0),
+  median_months = numeric(0), q1_months = numeric(0), q3_months = numeric(0),
+  pct_within_6mo = numeric(0), pct_within_1yr = numeric(0),
+  pct_within_2yr = numeric(0), pct_within_5yr = numeric(0)
+)
+load_iet <- function(path) {
+  if (file.exists(path)) {
+    read.csv(path, check.names = FALSE)
+  } else {
+    message("Note: ", path, " not found — Sup Table 3 will render placeholders.")
+    .iet_schema
+  }
+}
+ukb_iet <- load_iet("UKB Recurrence paper results/inter_event_time_summary.csv")
+aou_iet <- load_iet("AoU Recurrence paper results/inter_event_time_summary_aou.csv")
+
+fmt_mean <- function(df, tr) {
+  r <- df[df$transition == tr, , drop = FALSE]
+  if (nrow(r) == 0) return("--")
+  sprintf("%.1f $\\pm$ %.1f", r$mean_months, r$sd_months)
+}
+fmt_med <- function(df, tr) {
+  r <- df[df$transition == tr, , drop = FALSE]
+  if (nrow(r) == 0) return("--")
+  sprintf("%.1f (%.1f--%.1f)", r$median_months, r$q1_months, r$q3_months)
+}
+fmt_pct <- function(df, tr, col) {
+  r <- df[df$transition == tr, , drop = FALSE]
+  if (nrow(r) == 0) return("--")
+  sprintf("%.1f\\%%", r[[col]])
+}
+fmt_n <- function(df, tr) {
+  r <- df[df$transition == tr, , drop = FALSE]
+  if (nrow(r) == 0) return("--")
+  format(r$n, big.mark = ",")
+}
+```
 
 \begin{table}[H]
 \centering
 \small
-\begin{tabular}{llcc}
+\begin{tabular}{lcccc}
 \toprule
-& & \textbf{UK Biobank} & \textbf{All of Us} \\
+\textbf{Transition} & \textbf{1$\rightarrow$2} & \textbf{2$\rightarrow$3} & \textbf{3$\rightarrow$4} & \textbf{4$\rightarrow$5} \\
 \midrule
-\multicolumn{2}{l}{N, (\%)} & 3,103 (50\%) & 2,739 (50\%) \\
+\multicolumn{5}{l}{\textit{UK Biobank}} \\
 \midrule
-\multirow{3}{*}{\makecell[l]{5-Year Recurrence Rates,\\AUC (95\% CI)}} & 0 vs 1 subsequent events & 0.53 (0.51--0.54) & 0.54 (0.52--0.55) \\
-& 0 vs 2 subsequent events & 0.56 (0.54--0.58) & 0.54 (0.51--0.56) \\
-& 0 vs 3 subsequent events & 0.59 (0.56--0.61) & 0.53 (0.50--0.56) \\
+N (recurred) & `r fmt_n(ukb_iet, "1→2")` & `r fmt_n(ukb_iet, "2→3")` & `r fmt_n(ukb_iet, "3→4")` & `r fmt_n(ukb_iet, "4→5")` \\
+Median (IQR) (months) & `r fmt_med(ukb_iet, "1→2")` & `r fmt_med(ukb_iet, "2→3")` & `r fmt_med(ukb_iet, "3→4")` & `r fmt_med(ukb_iet, "4→5")` \\
+Within 1 yr   & `r fmt_pct(ukb_iet, "1→2", "pct_within_1yr")` & `r fmt_pct(ukb_iet, "2→3", "pct_within_1yr")` & `r fmt_pct(ukb_iet, "3→4", "pct_within_1yr")` & `r fmt_pct(ukb_iet, "4→5", "pct_within_1yr")` \\
+Within 2 yr   & `r fmt_pct(ukb_iet, "1→2", "pct_within_2yr")` & `r fmt_pct(ukb_iet, "2→3", "pct_within_2yr")` & `r fmt_pct(ukb_iet, "3→4", "pct_within_2yr")` & `r fmt_pct(ukb_iet, "4→5", "pct_within_2yr")` \\
+Within 5 yr   & `r fmt_pct(ukb_iet, "1→2", "pct_within_5yr")` & `r fmt_pct(ukb_iet, "2→3", "pct_within_5yr")` & `r fmt_pct(ukb_iet, "3→4", "pct_within_5yr")` & `r fmt_pct(ukb_iet, "4→5", "pct_within_5yr")` \\
 \midrule
-\multirow{3}{*}{\makecell[l]{5-Year Recurrence Rates,\\Sensitivity (95\% CI)}} & 0 vs 1 subsequent events & 0.53 (0.50--0.55) & 0.55 (0.52--0.58) \\
-& 0 vs 2 subsequent events & 0.60 (0.56--0.63) & 0.55 (0.51--0.59) \\
-& 0 vs 3 subsequent events & 0.65 (0.60--0.70) & 0.54 (0.48--0.60) \\
+\multicolumn{5}{l}{\textit{All of Us}} \\
 \midrule
-\multirow{3}{*}{\makecell[l]{5-Year Recurrence Rates,\\Specificity (95\% CI)}} & 0 vs 1 subsequent events & 0.53 (0.50--0.55) & 0.52 (0.49--0.55) \\
-& 0 vs 2 subsequent events & 0.53 (0.49--0.55) & 0.52 (0.48--0.56) \\
-& 0 vs 3 subsequent events & 0.53 (0.46--0.56) & 0.52 (0.46--0.57) \\
+N (recurred) & `r fmt_n(aou_iet, "1→2")` & `r fmt_n(aou_iet, "2→3")` & `r fmt_n(aou_iet, "3→4")` & `r fmt_n(aou_iet, "4→5")` \\
+Median (IQR) (months) & `r fmt_med(aou_iet, "1→2")` & `r fmt_med(aou_iet, "2→3")` & `r fmt_med(aou_iet, "3→4")` & `r fmt_med(aou_iet, "4→5")` \\
+Within 1 yr   & `r fmt_pct(aou_iet, "1→2", "pct_within_1yr")` & `r fmt_pct(aou_iet, "2→3", "pct_within_1yr")` & `r fmt_pct(aou_iet, "3→4", "pct_within_1yr")` & `r fmt_pct(aou_iet, "4→5", "pct_within_1yr")` \\
+Within 2 yr   & `r fmt_pct(aou_iet, "1→2", "pct_within_2yr")` & `r fmt_pct(aou_iet, "2→3", "pct_within_2yr")` & `r fmt_pct(aou_iet, "3→4", "pct_within_2yr")` & `r fmt_pct(aou_iet, "4→5", "pct_within_2yr")` \\
+Within 5 yr   & `r fmt_pct(aou_iet, "1→2", "pct_within_5yr")` & `r fmt_pct(aou_iet, "2→3", "pct_within_5yr")` & `r fmt_pct(aou_iet, "3→4", "pct_within_5yr")` & `r fmt_pct(aou_iet, "4→5", "pct_within_5yr")` \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\newpage
+
+## Supplementary Table 4. Pairwise classifier comparisons (whole-dataset analysis, Figure 2)
+
+Pairwise tests were computed within each cohort on the entire transitions-long sample using a non-parametric cluster bootstrap that resamples PARTICIPANTS (not transitions) — addressing the within-patient correlation introduced when one participant contributes multiple transition-rows. Cluster-bootstrap two-sided p-values are then combined across cohorts via Fisher's method. Pooled AUCs use DerSimonian-Laird random-effects meta-analysis (UKB + AoU). The six comparison families correspond to the analysis in main-text Figure 2.
+
+```{r supp-table-4-pairwise-comparisons, results='asis'}
+# --- Load pooled meta-AUC table (used for Figure 2) and pairwise DeLong tables ---
+load_or_empty_pair <- function(path) {
+  if (file.exists(path)) {
+    read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+  } else {
+    message("Note: ", path, " not found — Sup Table 4 will report 'NA'.")
+    data.frame(classifier_a = character(0), classifier_b = character(0),
+               delong_p = numeric(0))
+  }
+}
+ukb_pair <- load_or_empty_pair("UKB Recurrence paper results/recurrent_disease_whole_dataset_pairwise_delong.csv")
+aou_pair <- load_or_empty_pair("AoU Recurrence paper results/recurrent_disease_whole_dataset_pairwise_delong_aou.csv")
+
+# Per-cohort AUCs (already loaded by Figure 2 chunk; reload defensively here
+# so this chunk works even if knitted in isolation)
+load_or_empty_metrics <- function(path) {
+  if (file.exists(path)) {
+    read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+  } else {
+    message("Note: ", path, " not found.")
+    data.frame(Comparison = character(0), AUC_val = numeric(0),
+               AUC_lo = numeric(0), AUC_hi = numeric(0))
+  }
+}
+ukb_m <- load_or_empty_metrics("UKB Recurrence paper results/recurrent_disease_whole_dataset_metrics.csv")
+aou_m <- load_or_empty_metrics("AoU Recurrence paper results/recurrent_disease_whole_dataset_metrics_aou.csv")
+
+# DerSimonian-Laird random-effects meta-analysis of AUC for a given classifier.
+# Cohort-specific AUCs come from the cluster-bootstrap CIs in the per-cohort
+# whole-dataset metrics CSVs.
+ivm_auc <- function(label) {
+  rows <- rbind(
+    ukb_m[ukb_m$Comparison == label, c("AUC_val","AUC_lo","AUC_hi"), drop = FALSE],
+    aou_m[aou_m$Comparison == label, c("AUC_val","AUC_lo","AUC_hi"), drop = FALSE]
+  )
+  if (nrow(rows) == 0) return(c(est = NA, lo = NA, hi = NA))
+  se <- (rows$AUC_hi - rows$AUC_lo) / (2 * 1.96)
+  ok <- is.finite(se) & se > 0 & is.finite(rows$AUC_val)
+  est <- rows$AUC_val[ok]; se <- se[ok]; vi <- se^2
+  k <- length(est)
+  if (k == 0) return(c(est = NA, lo = NA, hi = NA))
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * est) / sum(w_fe)
+  Q  <- sum(w_fe * (est - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * est) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
+}
+
+# Look up the DeLong p in a pairwise table (handles either order of a/b)
+lookup_p <- function(tbl, a, b) {
+  hit <- tbl[(tbl$classifier_a == a & tbl$classifier_b == b) |
+             (tbl$classifier_a == b & tbl$classifier_b == a), "delong_p"]
+  if (length(hit) == 0) NA_real_ else hit[1]
+}
+
+fisher_combine <- function(ps) {
+  ps <- ps[is.finite(ps) & ps > 0 & ps <= 1]
+  if (length(ps) < 1) return(NA_real_)
+  if (length(ps) == 1) return(ps)
+  X <- -2 * sum(log(ps))
+  1 - pchisq(X, df = 2 * length(ps))
+}
+
+fmt_auc_ci <- function(v) {
+  if (any(is.na(v))) return("--")
+  sprintf("%.3f (%.3f--%.3f)", v["est"], v["lo"], v["hi"])
+}
+fmt_p_combined <- function(p) {
+  if (is.na(p)) return("--")
+  if (p < 0.001) return("<0.001")
+  sprintf("%.3f", p)
+}
+
+# --- Define the 5 comparison families ---
+all_classifiers <- c(
+  "EAU only",
+  "EAU + Short Time ≤6mo", "EAU + Short Time ≤24mo",
+  "EAU + ≥2 events", "EAU + ≥3 events", "EAU + ≥4 events",
+  "EAU + ≥2 events + Short Time ≤6mo",
+  "EAU + ≥2 events + Short Time ≤24mo",
+  "EAU + ≥3 events + Short Time ≤6mo",
+  "EAU + ≥3 events + Short Time ≤24mo",
+  "EAU + ≥4 events + Short Time ≤6mo",
+  "EAU + ≥4 events + Short Time ≤24mo"
+)
+ST    <- c("EAU + Short Time ≤6mo", "EAU + Short Time ≤24mo")
+RD    <- c("EAU + ≥2 events", "EAU + ≥3 events", "EAU + ≥4 events")
+RDST  <- setdiff(all_classifiers, c("EAU only", ST, RD))
+
+family_specs <- list(
+  list(name = "1. EAU only vs EAU + Short Time (no recurrent disease)",
+       a = rep("EAU only", length(ST)), b = ST),
+  list(name = "2. EAU only vs EAU + Recurrent Disease (no short time)",
+       a = rep("EAU only", length(RD)), b = RD),
+  list(name = "3. EAU only vs EAU + Recurrent Disease + Short Time",
+       a = rep("EAU only", length(RDST)), b = RDST),
+  list(name = "4. EAU + Short Time vs EAU + Recurrent Disease (no short time)",
+       a = rep(ST, each = length(RD)), b = rep(RD, length(ST))),
+  list(name = "5. EAU + Short Time vs EAU + Recurrent Disease + Short Time",
+       a = rep(ST, each = length(RDST)), b = rep(RDST, length(ST))),
+  list(name = "6. EAU + Recurrent Disease (no short time) vs EAU + Recurrent Disease + Short Time",
+       a = rep(RD, each = length(RDST)), b = rep(RDST, length(RD)))
+)
+
+rows_list <- lapply(family_specs, function(fs) {
+  do.call(rbind, lapply(seq_along(fs$a), function(i) {
+    a <- fs$a[i]; b <- fs$b[i]
+    p_ukb <- lookup_p(ukb_pair, a, b)
+    p_aou <- lookup_p(aou_pair, a, b)
+    p_pool <- fisher_combine(c(p_ukb, p_aou))
+    auc_a <- ivm_auc(a); auc_b <- ivm_auc(b)
+    data.frame(
+      Family = fs$name,
+      A = a, B = b,
+      `AUC A pooled (95% CI)` = fmt_auc_ci(auc_a),
+      `AUC B pooled (95% CI)` = fmt_auc_ci(auc_b),
+      `UKB cluster-boot p` = fmt_p_combined(p_ukb),
+      `AoU cluster-boot p` = fmt_p_combined(p_aou),
+      `Fisher combined p` = fmt_p_combined(p_pool),
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+  }))
+})
+all_rows <- do.call(rbind, rows_list)
+
+# --- Render via kableExtra with family group headers ---
+suppressMessages({ library(kableExtra) })
+display <- all_rows %>% dplyr::select(-Family)
+group_index <- table(factor(all_rows$Family, levels = sapply(family_specs, `[[`, "name")))
+
+kbl(display, format = "latex", booktabs = TRUE, escape = FALSE,
+    longtable = TRUE,
+    col.names = c("High Risk Definition A", "High Risk Definition B",
+                  "AUC A (95\\% CI)", "AUC B (95\\% CI)",
+                  "UKB DeLong $p$", "AoU DeLong $p$", "Fisher combined $p$")) %>%
+  kable_styling(latex_options = c("repeat_header", "hold_position"),
+                font_size = 7) %>%
+  pack_rows(index = group_index) %>%
+  column_spec(1, width = "4cm") %>%
+  column_spec(2, width = "4cm") %>%
+  # Vertically merge consecutive duplicate values in column 1 (High Risk
+  # Definition A) and column 3 (AUC A). pack_rows boundaries naturally
+  # break the merge, so collapsing happens within each family block only.
+  collapse_rows(columns = c(1, 3), valign = "middle", latex_hline = "none")
+```
 
 \newpage
 
@@ -339,21 +535,43 @@ df$AUC_val <- as.numeric(df$AUC_val)
 df$AUC_lo <- as.numeric(df$AUC_lo)
 df$AUC_hi <- as.numeric(df$AUC_hi)
 
-# --- Inverse-variance fixed-effect meta-analysis on AUC ---
-# SE derived from 95% CI bounds (normal approximation).
+# --- DerSimonian-Laird random-effects meta-analysis on AUC ---
+# SE derived from 95% CI bounds (normal approximation). With only 2 cohorts
+# the between-study variance estimate (tau^2) is unstable, but RE pooling
+# is the methodologically appropriate choice when between-cohort
+# heterogeneity is plausible. tau^2 = 0 collapses to fixed-effect IVM.
+re_meta_auc <- function(est, lo, hi) {
+  se <- (hi - lo) / (2 * 1.96)
+  ok <- is.finite(se) & se > 0 & is.finite(est)
+  est <- est[ok]; se <- se[ok]; vi <- se^2
+  k <- length(est)
+  if (k < 1) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * est) / sum(w_fe)
+  Q  <- sum(w_fe * (est - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * est) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
+}
+
 meta_auc <- df %>%
   mutate(SE = (AUC_hi - AUC_lo) / (2 * 1.96)) %>%
   filter(is.finite(SE) & SE > 0) %>%
   group_by(label, Starting_Point, Time_Cutoff_Months, Recurrence_Definition) %>%
   summarise(
-    w_sum    = sum(1 / SE^2, na.rm = TRUE),
-    AUC_val  = sum((1 / SE^2) * AUC_val, na.rm = TRUE) / w_sum,
-    SE_pool  = sqrt(1 / w_sum),
-    AUC_lo   = AUC_val - 1.96 * SE_pool,
-    AUC_hi   = AUC_val + 1.96 * SE_pool,
+    pe = list(re_meta_auc(AUC_val, AUC_lo, AUC_hi)),
     .groups  = "drop"
   ) %>%
-  mutate(Biobank = "Meta-analysis") %>%
+  mutate(
+    AUC_val = sapply(pe, `[`, "est"),
+    AUC_lo  = sapply(pe, `[`, "lo"),
+    AUC_hi  = sapply(pe, `[`, "hi"),
+    Biobank = "Meta-analysis"
+  ) %>%
   dplyr::select(all_of(cols))
 
 df <- rbind(df, meta_auc)
@@ -368,13 +586,20 @@ df$cutoff_num <- ifelse(is.na(df$Time_Cutoff_Months), 0,
 df <- df[order(df$event_order, df$cutoff_num), ]
 
 # --- Y-axis: cutoff-only labels (event is in the row facet strip) ---
-df$cutoff_label <- ifelse(is.na(df$Time_Cutoff_Months) | df$Time_Cutoff_Months == "NA",
-                          " ",
-                          paste0(df$Time_Cutoff_Months, " months"))
-# ---  Order cutoff labels (6mo on TOP, 24mo on BOTTOM) ---
-# In ggplot, factor level 1 is at the bottom. To put "6 months" on top we
-# place it last in the factor levels. Order: " ", 24mo, 18mo, 12mo, 6mo
-cutoff_levels <- c(" ", paste0(c(24, 18, 12, 6), " months"))
+# For Index Date and the no-cutoff variant of 2nd/3rd/4th events we use a
+# single shared label "No Short time" — there is no short-time modifier in
+# either case (Index Date has no prior gap; the no-cutoff non-Index variant
+# explicitly omits the short-time rule). The 6- and 24-month short-time rows
+# sit below it in each non-Index facet.
+df$cutoff_label <- dplyr::case_when(
+  df$Starting_Point == "Index Date"                                ~ "No Short time",
+  is.na(df$Time_Cutoff_Months) | df$Time_Cutoff_Months == "NA"     ~ "No Short time",
+  TRUE                                                             ~ paste0(df$Time_Cutoff_Months, " months")
+)
+# ---  Order cutoff labels (top→bottom: No Short time, 6 months, 24 months) ---
+# In ggplot, factor level 1 is at the bottom. To put "No Short time"
+# on top we place it last in the factor levels.
+cutoff_levels <- c("24 months", "6 months", "No Short time")
 df$cutoff_label <- factor(df$cutoff_label, levels = cutoff_levels)
 
 # ---  Condense information ---
@@ -382,7 +607,8 @@ df <- df %>%
   filter(Recurrence_Definition == "≥1 subsequent stone events") %>%
   filter(
     Starting_Point == "Index Date" |
-    (Starting_Point != "Index Date" & Time_Cutoff_Months %in% c(6, 24))
+    (Starting_Point != "Index Date" &
+       (is.na(Time_Cutoff_Months) | Time_Cutoff_Months %in% c(6, 24)))
   )
 
 # --- Cohort factor order: UKB, AoU, Meta-analysis ---
@@ -406,13 +632,88 @@ df$y_offset <- dplyr::case_when(
 )
 df$y_num <- as.numeric(df$cutoff_label) + df$y_offset
 
-# --- Ensure ONLY desired cutoff levels exist (6mo TOP, 24mo BOTTOM) ---
+# --- Ensure ONLY desired cutoff levels exist ---
 df <- df %>% dplyr::filter(cutoff_num %in% c(0, 6, 24))
-df$cutoff_label <- factor(df$cutoff_label, levels = c(" ", "24 months", "6 months"))
+df$cutoff_label <- factor(df$cutoff_label, levels = cutoff_levels)
 
 # --- Studies + meta-analysis split ---
 df_studies <- df %>% dplyr::filter(Biobank != "Meta-analysis")
 df_meta    <- df %>% dplyr::filter(Biobank == "Meta-analysis")
+
+# --- Pairwise Wald-test p-values on pooled meta-analytic AUCs ---
+# For each non-Index event (Second/Third/Fourth) we compute three comparisons:
+#   (i)   No Short time  vs 6 months
+#   (ii)  No Short time  vs 24 months
+#   (iii) 6 months        vs 24 months
+# Each p uses z = (AUC_a - AUC_b) / sqrt(SE_a^2 + SE_b^2), where SE comes
+# from the pooled meta-analytic CI: SE = (AUC_hi - AUC_lo) / (2 * 1.96).
+# Treats the pooled estimates as independent (conservative — paired
+# discrimination tests on the same subjects have negative covariance that
+# would shrink the SE of the difference).
+fmt_pp <- function(p) {
+  if (is.na(p)) return("NA")
+  if (p < 0.001) return("<0.001")
+  formatC(p, digits = 3, format = "f")
+}
+wald_p <- function(a, b) {
+  if (nrow(a) == 0 || nrow(b) == 0) return(NA_real_)
+  se_a <- (a$AUC_hi - a$AUC_lo) / (2 * 1.96)
+  se_b <- (b$AUC_hi - b$AUC_lo) / (2 * 1.96)
+  z    <- (a$AUC_val - b$AUC_val) / sqrt(se_a^2 + se_b^2)
+  2 * pnorm(-abs(z))
+}
+
+pair_events <- df_meta %>%
+  dplyr::filter(Starting_Point != "Index Date") %>%
+  dplyr::distinct(event_label) %>%
+  dplyr::pull(event_label)
+
+pval_df <- do.call(rbind, lapply(pair_events, function(ev) {
+  rows  <- df_meta %>% dplyr::filter(event_label == ev)
+  nst   <- rows %>% dplyr::filter(cutoff_label == "No Short time")
+  six   <- rows %>% dplyr::filter(cutoff_label == "6 months")
+  twf   <- rows %>% dplyr::filter(cutoff_label == "24 months")
+  if (nrow(nst) == 0 && nrow(six) == 0 && nrow(twf) == 0) return(NULL)
+
+  p1 <- wald_p(nst, six)   # No Short time vs 6 mo
+  p2 <- wald_p(nst, twf)   # No Short time vs 24 mo
+  p3 <- wald_p(six, twf)   # 6 mo vs 24 mo
+
+  # Inset-table label content: header, separator and three pairwise rows,
+  # rendered in a monospaced font so the columns align inside the box.
+  col1 <- 23  # width of the "Comparison" column (chars)
+  col2 <- 7   # width of the "p" column (chars)
+  table_text <- paste(
+    sprintf(paste0("%-", col1, "s  %-", col2, "s"), "Comparison",        "p-value"),
+    sprintf(paste0("%-", col1, "s  %-", col2, "s"),
+            strrep("-", col1), strrep("-", col2)),
+    sprintf(paste0("%-", col1, "s  %-", col2, "s"), "No Short time vs 6 mo",  fmt_pp(p1)),
+    sprintf(paste0("%-", col1, "s  %-", col2, "s"), "No Short time vs 24 mo", fmt_pp(p2)),
+    sprintf(paste0("%-", col1, "s  %-", col2, "s"), "6 mo vs 24 mo",          fmt_pp(p3)),
+    sep = "\n"
+  )
+
+  # Place block centred on the middle row ("6 months") of this event,
+  # just to the right of the diamond region.
+  y_anchor <- as.numeric(factor("6 months", levels = cutoff_levels)) -
+                (dodge_w / 3)
+
+  data.frame(event_label = as.character(ev),
+             rec_facet   = unique(rows$rec_facet),
+             x_text      = 0.72,
+             y_num       = y_anchor,
+             p_label     = table_text,
+             stringsAsFactors = FALSE)
+}))
+
+if (is.null(pval_df) || nrow(pval_df) == 0) {
+  pval_df <- data.frame(event_label = factor(character(0), levels = event_order),
+                        rec_facet   = factor(character(0), levels = rec_labels),
+                        x_text = numeric(0), y_num = numeric(0),
+                        p_label = character(0))
+} else {
+  pval_df$event_label <- factor(pval_df$event_label, levels = event_order)
+}
 
 # --- Manual dodge offsets ---
 dodge_w <- 0.7
@@ -466,6 +767,16 @@ ggplot() +
                aes(x = x, y = y, group = label, fill = Biobank),
                colour = "black", linewidth = 0.3) +
 
+  geom_label(data = pval_df,
+             aes(x = x_text, y = y_num, label = p_label),
+             hjust = 0, vjust = 0.5,
+             size = 2.4, lineheight = 0.95,
+             family = "mono", colour = "black",
+             fill = "white",
+             label.size = 0.3,        
+             label.padding = unit(3, "pt"),
+             label.r = unit(1, "pt")) +
+
   facet_grid(event_label ~ rec_facet,
              scales = "free_y", space = "free_y", switch = "y") +
 
@@ -482,8 +793,8 @@ ggplot() +
   scale_fill_manual(values = c("Meta-analysis" = "#7570b3"),
                     labels = "Meta-analysis") +
 
-  coord_cartesian(xlim = c(0.45, 0.72)) +
-  scale_x_continuous(breaks = seq(0.45, 0.70, 0.05)) +
+  coord_cartesian(xlim = c(0.45, 0.8)) +
+  scale_x_continuous(breaks = seq(0.45, 0.75, 0.05)) +
 
   labs(x = "Area Under Receiver-Operator-Characteristic Curve (95% CI)", y = "Short Time Between Events, months",
        title = "EAU Risk Stratification by Event Presentation",
@@ -502,13 +813,13 @@ ggplot() +
   )
 ```
 
-**Figure 1:** Forest plot of area under the receiver-operator-characteristic curve (AUC-ROC) for the EAU risk stratification, stratified by stone event number on the left. The y-axis denotes the time between prior events (omitted for the first event). Dotted line indicates AUC = 0.5 i.e. no difference between high/low risk, Dot/Dash line indicates AUC = 0.7, which is the generally accepted threshold for meaningful clinical difference. Green circle = UK Biobank, Orange triangle = All of Us, Purple diamond = inverse-variance fixed-effect meta-analysis of UKB + AoU. The diamond's horizontal extent indicates the pooled 95% CI. Italic p-values to the right of each diamond are DeLong-equivalent Wald tests of the pooled AUC against the null hypothesis AUC = 0.5.
+**Figure 1:** Forest plot of area under the receiver-operator-characteristic curve (AUC-ROC) for the Baseline EAU risk stratification's (no 'recurrent disease' definition) predictive ability for 5-year recurrence, stratified by stone event number on the left. The y-axis denotes the *Short Time Between Events*. The "No Short time" row reports the EAU classifier without any short-time modifier; it appears at the top of every event facet (for the 1st event there is no prior gap so the modifier is not applicable, and for the 2nd/3rd/4th events it serves as a reference against which the short-time variants can be compared). Dashed line indicates AUC = 0.5 i.e. no difference between high/low risk, Dot/Dash line indicates AUC = 0.7 (generally accepted threshold for meaningful clinical difference). Green circle = UK Biobank, Orange triangle = All of Us, Purple diamond = DerSimonian-Laird random-effects meta-analysis of UKB + AoU. The diamond's horizontal extent indicates the pooled 95% CI. The boxed inset table to the right of each non-Index-Date event facet reports three pairwise Wald-test *p*-values comparing the pooled meta-analytic AUCs of (i) No Short time vs 6-month short-time, (ii) No Short time vs 24-month short-time, and (iii) 6-month vs 24-month short-time. Test treats the pooled AUCs as independent (conservative; see methods).
 
 \newpage
 
 ## Figure 2
 
-```{r fig2-eau-vs-recurrent-disease, fig.width=11, fig.height=6, out.width="100%"}
+```{r fig2-eau-vs-recurrent-disease, fig.width=11, fig.height=11, out.width="100%"}
 # --- Load per-cohort whole-dataset analysis results ---
 # These come from the whole-dataset analysis (every participant contributes
 # one row per transition they reach, using per-event re-ascertained EAU risk),
@@ -518,20 +829,53 @@ ukb_p <- read.csv("UKB Recurrence paper results/recurrent_disease_whole_dataset_
 aou_p <- read.csv("AoU Recurrence paper results/recurrent_disease_whole_dataset_metrics_aou.csv",
                   check.names = FALSE)
 
-# Relabel each classifier definition (the source CSVs use "EAU only" /
-# "EAU + \u2265X events" \u2014 both literal-character and \uXXXX forms appear depending
-# on how R wrote the CSV, so handle both).
-relabel <- function(rd) dplyr::case_when(
-  rd == "EAU only"            ~ "EAU without 'recurrent disease' definition",
-  rd == "EAU Only"            ~ "EAU without 'recurrent disease' definition",
-  grepl("\u22652 events", rd) ~ "EAU + 'recurrent disease = 2 or more events'",
-  grepl("\u22653 events", rd) ~ "EAU + 'recurrent disease = 3 or more events'",
-  grepl("\u22654 events", rd) ~ "EAU + 'recurrent disease = 4 or more events'",
-  TRUE ~ rd
-)
+# Relabel each classifier definition. We detect three orthogonal features
+# in each Comparison string:
+#   - rec_def: "\u22652", "\u22653", "\u22654", or "none"
+#   - st_cut : 6, 24, or NA (no short-time modifier)
+# and combine them into a Group label and a Risk_Family for facetting.
+classify_row <- function(rd) {
+  has_2  <- grepl("\u22652 events", rd)
+  has_3  <- grepl("\u22653 events", rd)
+  has_4  <- grepl("\u22654 events", rd)
+  has_st6  <- grepl("Short Time \u22646mo|Short Time <=6mo|Short Time \\u22646mo", rd)
+  has_st24 <- grepl("Short Time \u226424mo|Short Time <=24mo|Short Time \\u226424mo", rd)
+  rec <- dplyr::case_when(
+    has_2 ~ "\u22652 events",
+    has_3 ~ "\u22653 events",
+    has_4 ~ "\u22654 events",
+    TRUE  ~ "none"
+  )
+  st <- dplyr::case_when(
+    has_st6  ~ "Short Time \u22646mo",
+    has_st24 ~ "Short Time \u226424mo",
+    TRUE     ~ "no short time"
+  )
+  list(rec = rec, st = st)
+}
+classified_ukb <- lapply(ukb_p$Comparison, classify_row)
+ukb_p$rec_def <- vapply(classified_ukb, function(x) x$rec, character(1))
+ukb_p$st_def  <- vapply(classified_ukb, function(x) x$st,  character(1))
+classified_aou <- lapply(aou_p$Comparison, classify_row)
+aou_p$rec_def <- vapply(classified_aou, function(x) x$rec, character(1))
+aou_p$st_def  <- vapply(classified_aou, function(x) x$st,  character(1))
 
-ukb_p$Group  <- relabel(ukb_p$Comparison)
-aou_p$Group  <- relabel(aou_p$Comparison)
+# Build human-readable Group label (per-row) and a Risk_Family (facet)
+make_group <- function(rec, st) {
+  if (rec == "none" && st == "no short time") return("EAU only")
+  base <- if (rec == "none") "EAU" else paste0("EAU + ", rec)
+  if (st == "no short time") base else paste0(base, " + ", st)
+}
+make_family <- function(rec, st) {
+  if (rec == "none" && st == "no short time") return("EAU only (baseline)")
+  if (rec == "none") return("EAU + Short Time")
+  paste0("EAU + ", rec)
+}
+
+ukb_p$Group        <- mapply(make_group,  ukb_p$rec_def, ukb_p$st_def)
+ukb_p$Risk_Family  <- mapply(make_family, ukb_p$rec_def, ukb_p$st_def)
+aou_p$Group        <- mapply(make_group,  aou_p$rec_def, aou_p$st_def)
+aou_p$Risk_Family  <- mapply(make_family, aou_p$rec_def, aou_p$st_def)
 ukb_p$Cohort <- "UKB"; aou_p$Cohort <- "AoU"
 
 # Standardise the DeLong p-value column name across the two CSVs
@@ -539,27 +883,51 @@ ukb_p$delong_p <- ukb_p$delong_p_vs_EAU_only
 aou_p$delong_p <- aou_p$delong_p_vs_EAU_only
 
 studies <- rbind(
-  ukb_p[, c("Group","AUC_val","AUC_lo","AUC_hi","delong_p","Cohort")],
-  aou_p[, c("Group","AUC_val","AUC_lo","AUC_hi","delong_p","Cohort")]
+  ukb_p[, c("Group","Risk_Family","AUC_val","AUC_lo","AUC_hi","delong_p","Cohort")],
+  aou_p[, c("Group","Risk_Family","AUC_val","AUC_lo","AUC_hi","delong_p","Cohort")]
 )
 
 group_levels <- c(
-  "EAU without 'recurrent disease' definition",
-  "EAU + 'recurrent disease = 2 or more events'",
-  "EAU + 'recurrent disease = 3 or more events'",
-  "EAU + 'recurrent disease = 4 or more events'"
+  "EAU only",
+  "EAU + Short Time \u22646mo",
+  "EAU + Short Time \u226424mo",
+  "EAU + \u22652 events",
+  "EAU + \u22652 events + Short Time \u22646mo",
+  "EAU + \u22652 events + Short Time \u226424mo",
+  "EAU + \u22653 events",
+  "EAU + \u22653 events + Short Time \u22646mo",
+  "EAU + \u22653 events + Short Time \u226424mo",
+  "EAU + \u22654 events",
+  "EAU + \u22654 events + Short Time \u22646mo",
+  "EAU + \u22654 events + Short Time \u226424mo"
 )
-studies$Group <- factor(studies$Group, levels = group_levels)
+family_levels <- c("EAU only (baseline)", "EAU + Short Time",
+                   "EAU + \u22652 events", "EAU + \u22653 events", "EAU + \u22654 events")
 
-# --- Inverse-variance fixed-effect meta-analysis on AUC ---
-ivm <- function(est, lo, hi) {
+studies$Group       <- factor(studies$Group,       levels = group_levels)
+studies$Risk_Family <- factor(studies$Risk_Family, levels = family_levels)
+
+# --- DerSimonian-Laird random-effects meta-analysis on AUC ---
+# With only 2 cohorts the between-study variance estimate (tau^2) is
+# unstable, but the user explicitly requested random-effects pooling so
+# between-cohort heterogeneity is acknowledged in the SE. When tau^2 = 0
+# (no detectable heterogeneity) the pool collapses to fixed-effect IVM.
+re_meta <- function(est, lo, hi) {
   se <- (hi - lo) / (2 * 1.96)
   ok <- is.finite(se) & se > 0 & is.finite(est)
-  if (sum(ok) < 1) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
-  w  <- 1 / se[ok]^2
-  pe <- sum(w * est[ok]) / sum(w)
-  pse <- sqrt(1 / sum(w))
-  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
+  est <- est[ok]; se <- se[ok]; vi <- se^2
+  k <- length(est)
+  if (k < 1) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_, tau2 = NA_real_))
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se, tau2 = 0))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * est) / sum(w_fe)
+  Q  <- sum(w_fe * (est - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * est) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse, tau2 = tau2)
 }
 
 # --- Fisher's combined p-value across cohorts (treats two as independent tests) ---
@@ -572,13 +940,13 @@ fisher_combine <- function(ps) {
 }
 
 pooled <- studies %>%
-  group_by(Group) %>%
+  group_by(Group, Risk_Family) %>%
   summarise(
     UKB_p    = first(delong_p[Cohort == "UKB"]),
     AoU_p    = first(delong_p[Cohort == "AoU"]),
     fisher_p = fisher_combine(c(first(delong_p[Cohort == "UKB"]),
                                  first(delong_p[Cohort == "AoU"]))),
-    pe = list(ivm(AUC_val, AUC_lo, AUC_hi)),
+    pe = list(re_meta(AUC_val, AUC_lo, AUC_hi)),
     .groups = "drop"
   ) %>%
   mutate(
@@ -591,8 +959,8 @@ pooled <- studies %>%
 
 # --- Build long row_id factor for plotting ---
 all_rows <- bind_rows(
-  studies %>% dplyr::select(Group, Cohort, AUC_val, AUC_lo, AUC_hi),
-  pooled  %>% dplyr::select(Group, Cohort, AUC_val, AUC_lo, AUC_hi)
+  studies %>% dplyr::select(Group, Risk_Family, Cohort, AUC_val, AUC_lo, AUC_hi),
+  pooled  %>% dplyr::select(Group, Risk_Family, Cohort, AUC_val, AUC_lo, AUC_hi)
 ) %>%
   mutate(Cohort = factor(Cohort, levels = c("UKB","AoU","Pooled")))
 
@@ -604,6 +972,19 @@ all_rows$row_id <- factor(
 all_rows$row_id <- forcats::fct_rev(all_rows$row_id)
 all_rows$y_num  <- as.integer(all_rows$row_id)
 
+# Within-family sub-label shown on the y-axis (the family itself sits in the
+# strip on the left, so we only need the differentiator within the family).
+sub_label <- function(g) dplyr::case_when(
+  g == "EAU only"                              ~ "No Short time",
+  g == "EAU + Short Time ≤6mo"                 ~ "+ Short Time ≤6mo",
+  g == "EAU + Short Time ≤24mo"                ~ "+ Short Time ≤24mo",
+  grepl("Short Time ≤6mo$",  g)                ~ "+ Short Time ≤6mo",
+  grepl("Short Time ≤24mo$", g)                ~ "+ Short Time ≤24mo",
+  grepl("≥[234] events$", g)                   ~ "No Short time",
+  TRUE                                          ~ as.character(g)
+)
+all_rows$sub_label <- sub_label(as.character(all_rows$Group))
+
 studies_plot <- all_rows %>% filter(Cohort != "Pooled")
 pooled_plot  <- all_rows %>% filter(Cohort == "Pooled" & is.finite(AUC_val))
 
@@ -611,37 +992,43 @@ diamond_h <- 0.30
 diamond_df <- pooled_plot %>%
   rowwise() %>%
   do(data.frame(
-    Group  = .$Group,
+    Group       = .$Group,
+    Risk_Family = .$Risk_Family,
     Cohort = "Pooled",
     x = c(.$AUC_lo, .$AUC_val, .$AUC_hi, .$AUC_val),
     y = .$y_num + c(0, diamond_h, 0, -diamond_h)
   )) %>%
   ungroup()
 
-# --- DeLong annotations: position to the right of the Pooled diamond ---
-delong_anno <- pooled %>%
-  mutate(
-    row_id = factor(paste(as.character(Group), "Pooled", sep = " | "),
-                    levels = levels(all_rows$row_id)),
-    y_num  = as.integer(row_id),
-    fisher_label = ifelse(is.na(fisher_p), NA_character_,
-                          ifelse(fisher_p < 0.001, "p<0.001",
-                                 paste0("p=", sprintf("%.3f", fisher_p))))
-  )
+# NOTE: per-classifier Fisher-combined DeLong p-values used to be annotated
+# on this plot; they have been moved to Supplementary Table 4 to allow ALL
+# pairwise comparisons (not just vs EAU only) to be reported.
 
-y_labels <- levels(all_rows$row_id)
+# Y-axis labels: show the within-family differentiator at every row position.
+# Each Group has 3 rows (UKB top, AoU middle, Pooled bottom). Anchoring to
+# the AoU row centres the label vertically on the 3-row block.
+y_label_lookup <- all_rows %>%
+  dplyr::distinct(y_num, sub_label, Cohort) %>%
+  dplyr::filter(Cohort == "AoU") %>%   # middle row → label is centred on the block
+  dplyr::arrange(y_num)
+# Build a label vector indexed by integer y position
+y_labels <- rep("", length(levels(all_rows$row_id)))
+y_labels[y_label_lookup$y_num] <- y_label_lookup$sub_label
 
-# Fisher p-value text positioned just to the right of each Pooled diamond.
-# Skip the EAU-only row (no comparison to itself).
-fisher_anno <- delong_anno %>%
-  dplyr::filter(Group != "EAU without 'recurrent disease' definition" &
-                  !is.na(fisher_label)) %>%
-  dplyr::transmute(
-    Group,
-    y_num,
-    AUC_hi,
-    label_txt = paste0("Fisher ", fisher_label, " (vs EAU only)")
-  )
+# --- Within-facet group dividers ---
+# Each Group occupies 3 consecutive y_num values (UKB / AoU / Pooled). To
+# make the boundary between consecutive Groups within a Risk_Family clearer,
+# draw a faint horizontal line at y = (top of group below) + 0.5 — i.e. just
+# above each non-bottom Group within each facet.
+group_dividers <- all_rows %>%
+  dplyr::distinct(Risk_Family, Group, y_num) %>%
+  dplyr::group_by(Risk_Family, Group) %>%
+  dplyr::summarise(y_max = max(y_num), .groups = "drop") %>%
+  dplyr::group_by(Risk_Family) %>%
+  dplyr::arrange(desc(y_max), .by_group = TRUE) %>%
+  dplyr::slice(-1) %>%        # drop the topmost group in each facet (no divider above it)
+  dplyr::ungroup() %>%
+  dplyr::mutate(y_div = y_max + 0.5)
 
 ggplot() +
   annotate("rect", xmin = -Inf, xmax = 0.5, ymin = -Inf, ymax = Inf,
@@ -654,10 +1041,15 @@ ggplot() +
   geom_vline(xintercept = 0.5, linetype = "dashed", colour = "grey40", linewidth = 0.7) +
   geom_vline(xintercept = 0.7, linetype = "dotdash", colour = "darkgreen", linewidth = 0.7) +
 
+  # Faint horizontal dividers between Groups within each Risk_Family facet.
+  geom_hline(data = group_dividers,
+             aes(yintercept = y_div),
+             colour = "grey40", linewidth = 0.4, alpha = 1) +
+
   geom_errorbarh(data = studies_plot,
                  aes(xmin = AUC_lo, xmax = AUC_hi, y = y_num, colour = Cohort),
                  height = 0.25, linewidth = 0.9) +
-  facet_grid(Group ~ .,
+  facet_grid(Risk_Family ~ .,
              scales = "free_y", space = "free_y", switch = "y") +
   geom_point(data = studies_plot,
              aes(x = AUC_val, y = y_num, colour = Cohort, shape = Cohort),
@@ -666,14 +1058,8 @@ ggplot() +
                aes(x = x, y = y, group = Group, fill = Cohort),
                colour = "black", linewidth = 0.3) +
 
-  # Fisher's combined p-value, positioned just to the right of each Pooled diamond
-  geom_text(data = fisher_anno,
-            aes(x = pmin(AUC_hi + 0.005, 0.71), y = y_num,
-                label = label_txt),
-            size = 2.8, hjust = 0, fontface = "italic", colour = "black") +
-
   scale_y_continuous(breaks = seq_along(y_labels),
-                     labels = c("","","","","","","","","","","",""),
+                     labels = y_labels,
                      expand = expansion(add = 0.6)) +
   scale_colour_manual(values = c(UKB = "#1b9e77", AoU = "#d95f02"),
                       breaks = c("UKB","AoU"), name = "Cohort") +
@@ -683,9 +1069,9 @@ ggplot() +
                     breaks = "Pooled", name = NULL,
                     labels = "Pooled (meta-analysis)") +
 
-  coord_cartesian(xlim = c(0.49, 0.71)) +
+  coord_cartesian(xlim = c(0.49, 0.72)) +
   labs(x = "AUC (95% CI)", y = NULL,
-       title = "EAU vs EAU + 'Recurrent Disease' definition") +
+     title = "Baseline Risk Stratification vs Baseline ± 'Short Time' ± 'Recurrent' Disease Definitions") +
   theme_bw(base_size = 10) +
   theme(strip.text.x = element_text(face = "bold", size = 11),
         strip.text.y.left = element_text(angle = 0, face = "bold", size = 9),
@@ -694,10 +1080,10 @@ ggplot() +
         panel.spacing = unit(0.8, "lines"),
         legend.position = "bottom",
         axis.text.y = element_text(size = 8),
-        plot.title = element_text(face = "bold", size = 14))
+        plot.title = element_text(face = "bold", size = 13))
 ```
 
-**Figure 2:** Forest plot of area under the receiver-operator-characteristic curve (AUC-ROC) for prognostic accuracy of EAU risk stratification with and without the 'recurrent disease' definition. The analysis uses the entire long-format transitions dataset — every participant contributes one row per transition they reach (1→2, 2→3, 3→4, 4→5) — and EAU risk is re-ascertained as of each transition's starting event. Dotted line indicates AUC = 0.5 (no difference between high/low risk); dot-dash line indicates AUC = 0.7 (the generally accepted threshold for meaningful clinical difference). Green circle = UK Biobank, Orange triangle = All of Us, Purple diamond = inverse-variance fixed-effect meta-analysis of UKB + AoU. The diamond's horizontal extent indicates the pooled 95% CI. The italic *p*-value beside each combined classifier's meta-analysis diamond is Fisher's combined test of the per-cohort DeLong p-values, summarising whether the combined classifier differs from EAU only in pooled discrimination.
+**Figure 2:** Forest plot of area under the receiver-operator-characteristic curve (AUC-ROC) for predictive accuracy of EAU risk stratification for 5-year recurrence.Vertical Dashed line indicates AUC = 0.5 (no difference between high/low risk); vertical dot-dash line indicates AUC = 0.7 (the generally accepted threshold for meaningful clinical difference); horizontal grey lines within each block - indicate a single analysis trio (UKB/AoU/Meta-analysis). Green circle = UK Biobank, Orange triangle = All of Us, Purple diamond = DerSimonian-Laird random-effects meta-analysis of UKB + AoU. The diamond's horizontal extent indicates the pooled 95% CI. Per-cohort AUCs and 95% CIs come from a patient-level cluster bootstrap (B = 1000 iterations resampling PARTICIPANTS, not transitions) — appropriate because each participant contributes multiple transition-rows in the long-format dataset. Pairwise statistical comparisons across all classifiers (cluster-bootstrap p-values within each cohort, Fisher-combined across cohorts) are reported in **Supplementary Table 4**.
 
 \newpage
 
@@ -744,7 +1130,23 @@ km_df_scaled <- km_df %>%
   mutate(pct_scaled = scales::rescale(pct, to = c(0, 100))) %>%
   ungroup()
 
-# --- Inverse-variance fixed-effect meta-analysis on the LOGIT scale ---
+# --- DerSimonian-Laird random-effects meta-analysis on the LOGIT scale ---
+re_meta_logit <- function(theta, vi) {
+  theta <- unname(theta); vi <- unname(vi)
+  k <- length(theta)
+  if (k < 1) return(c(theta = NA_real_, se = NA_real_))
+  if (k == 1) return(c(theta = theta[1], se = sqrt(vi[1])))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * theta) / sum(w_fe)
+  Q  <- sum(w_fe * (theta - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * theta) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(theta = pe, se = pse)
+}
+
 meta_df <- km_df %>%
   mutate(p    = pct / 100,
          lo_p = lo  / 100,
@@ -753,17 +1155,18 @@ meta_df <- km_df %>%
          theta_lo = log(lo_p / (1 - lo_p)),
          theta_hi = log(hi_p / (1 - hi_p)),
          se = (theta_hi - theta_lo) / (2 * 1.96),
-         w  = 1 / se^2) %>%
+         vi = se^2) %>%
   group_by(risk_group) %>%
   summarise(
-    theta_meta = sum(w * theta) / sum(w),
-    se_meta    = sqrt(1 / sum(w)),
+    pe = list(re_meta_logit(theta, vi)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    theta_meta = sapply(pe, `[`, "theta"),
+    se_meta    = sapply(pe, `[`, "se"),
     p_meta     = 1 / (1 + exp(-theta_meta)),
     lo_meta    = 1 / (1 + exp(-(theta_meta - 1.96 * se_meta))),
     hi_meta    = 1 / (1 + exp(-(theta_meta + 1.96 * se_meta))),
-    .groups    = "drop"
-  ) %>%
-  mutate(
     Biobank    = factor("Meta-analysis", levels = c("UKB","AoU","Meta-analysis")),
     pct        = p_meta * 100,
     lo         = lo_meta * 100,
@@ -808,7 +1211,7 @@ ggplot(df_plot, aes(x = risk_group, y = "5-year recurrence", fill = pct_scaled))
   )
 ```
 
-**Figure 3:** Heatmap of 5-year cumulative recurrence likelihood derived from Kaplan-Meier estimates, stratified by event-count group. *1st Event* = participants at their first stone event (transition 1→2). *≥2 Events* = participants at any subsequent transition (2→3, 3→4, 4→5) pooled. Cells are coloured by relative likelihood within each cohort (rescaled 0-100). The Meta-analysis row is the inverse-variance fixed-effect pool of UKB and AoU on the logit scale.
+**Figure 3:** Heatmap of 5-year cumulative recurrence likelihood derived from Kaplan-Meier estimates, stratified by event-count group. *1st Event* = participants at their first stone event (transition 1→2). *≥2 Events* = participants at any subsequent transition (2→3, 3→4, 4→5) pooled. Cells are coloured by relative likelihood within each cohort (rescaled 0-100). The Meta-analysis row is the DerSimonian-Laird random-effects pool of UKB and AoU on the logit scale.
 
 \newpage
 
@@ -822,13 +1225,180 @@ ggplot(df_plot, aes(x = risk_group, y = "5-year recurrence", fill = pct_scaled))
 
 \newpage
 
-### Supplementary Figure 2: Boxplot of Number of Events
+## Sensitivity-analysis Forest Plot (Full Grid)
 
-A \& D = Overall data for UK Biobank and All of Us respectively. B \& E = 5-year cut-off (those without 5-years follow-up were excluded if no recurrence). C \& F = 10-year cut-off (if no recurrence and without 10 years of follow-up, then excluded).
+#### Supplementary Figure 2: Sensitivity-analysis forest plot — full grid of cutoffs × recurrence definitions
 
-\begin{center}
-\includegraphics[width=\textwidth]{Supplementary Figure 2.pdf}
-\end{center}
+```{r supfig55-forest, fig.width=11, fig.height=16, fig.align="center", out.width="100%"}
+# Sensitivity-analysis forest plot \u2014 same idiom as main-text Figure 1 but
+# without the filters that restricted Figure 1 to the \u22651 subsequent-event
+# definition and the 6-/24-month cutoffs only. Shows every (event \u00d7 cutoff \u00d7
+# recurrence-definition) combination.
+
+# --- Load + combine ---
+ukb <- read.csv("UKB Recurrence paper results/prognostic_accuracy_grid_search_results.csv")
+aou <- read.csv("AoU Recurrence paper results/prognostic_accuracy_grid_search_results_aou.csv")
+aou <- aou[!duplicated(aou[, c("Starting_Point","Time_Cutoff_Months","Recurrence_Definition")]), ]
+
+event_map <- c("Index Date"   = "First Event",
+               "Second Event" = "Second Event",
+               "Third Event"  = "Third Event",
+               "Fourth Event" = "Fourth Event")
+
+make_label <- function(sp, c) {
+  e <- event_map[sp]
+  if (is.na(c) | c == "NA") e else paste0(e, " (", c, "mo)")
+}
+
+ukb$Biobank <- "UK Biobank"
+ukb$label   <- mapply(make_label, ukb$Starting_Point, as.character(ukb$Time_Cutoff_Months))
+aou$Biobank <- "All of Us"
+aou$label   <- mapply(make_label, aou$Starting_Point, as.character(aou$Time_Cutoff_Months))
+
+cols <- c("label","Starting_Point","Time_Cutoff_Months","Recurrence_Definition",
+          "AUC_val","AUC_lo","AUC_hi","Biobank")
+df <- rbind(ukb[, cols], aou[, cols])
+df$AUC_val <- as.numeric(df$AUC_val); df$AUC_lo <- as.numeric(df$AUC_lo); df$AUC_hi <- as.numeric(df$AUC_hi)
+
+# --- DerSimonian-Laird random-effects meta-analysis on AUC ---
+re_meta_auc <- function(est, lo, hi) {
+  se <- (hi - lo) / (2 * 1.96)
+  ok <- is.finite(se) & se > 0 & is.finite(est)
+  est <- est[ok]; se <- se[ok]; vi <- se^2
+  k <- length(est)
+  if (k < 1) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * est) / sum(w_fe)
+  Q  <- sum(w_fe * (est - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * est) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
+}
+
+meta_auc <- df %>%
+  mutate(SE = (AUC_hi - AUC_lo) / (2 * 1.96)) %>%
+  filter(is.finite(SE) & SE > 0) %>%
+  group_by(label, Starting_Point, Time_Cutoff_Months, Recurrence_Definition) %>%
+  summarise(pe = list(re_meta_auc(AUC_val, AUC_lo, AUC_hi)), .groups = "drop") %>%
+  mutate(
+    AUC_val = sapply(pe, `[`, "est"),
+    AUC_lo  = sapply(pe, `[`, "lo"),
+    AUC_hi  = sapply(pe, `[`, "hi"),
+    Biobank = "Meta-analysis"
+  ) %>%
+  dplyr::select(all_of(cols))
+df <- rbind(df, meta_auc)
+
+# --- Order ---
+event_order <- c("First Event","Second Event","Third Event","Fourth Event")
+df$event_label <- event_map[df$Starting_Point]
+df$event_label <- factor(df$event_label, levels = event_order)
+df$cutoff_num  <- ifelse(is.na(df$Time_Cutoff_Months), 0, as.numeric(df$Time_Cutoff_Months))
+df$cutoff_label <- ifelse(df$cutoff_num == 0, " ",
+                          paste0(df$Time_Cutoff_Months, " months"))
+# Place 6mo on top \u2192 make it the LAST level. Ordering: " ", 24, 21, 18, 15, 12, 9, 6
+cutoff_levels <- c(" ", paste0(c(24, 21, 18, 15, 12, 9, 6), " months"))
+df$cutoff_label <- factor(df$cutoff_label, levels = cutoff_levels)
+
+df$Biobank <- factor(df$Biobank, levels = c("UK Biobank","All of Us","Meta-analysis"))
+
+rec_labels <- c("\u22651 subsequent stone events" = "\u2265 1 Subsequent Stone Events",
+                "\u22652 subsequent stone events" = "\u2265 2 Subsequent Stone Events",
+                "\u22653 subsequent stone events" = "\u2265 3 Subsequent Stone Events")
+df$rec_facet <- rec_labels[df$Recurrence_Definition]
+df$rec_facet <- factor(df$rec_facet, levels = rec_labels)
+
+# --- Studies + meta-analysis split + manual dodge ---
+df_studies <- df %>% dplyr::filter(Biobank != "Meta-analysis")
+df_meta    <- df %>% dplyr::filter(Biobank == "Meta-analysis")
+
+dodge_w <- 0.7
+df_studies$y_num <- as.numeric(df_studies$cutoff_label) +
+  dplyr::case_when(
+    df_studies$Biobank == "UK Biobank" ~ +dodge_w / 3,
+    df_studies$Biobank == "All of Us"  ~  0
+  )
+df_meta$y_num <- as.numeric(df_meta$cutoff_label) - (dodge_w / 3)
+
+# --- Diamond polygon vertices for meta-analysis ---
+diamond_h <- 0.13
+diamond_df <- df_meta %>%
+  dplyr::rowwise() %>%
+  dplyr::do(data.frame(
+    label       = .$label,
+    event_label = .$event_label,
+    rec_facet   = .$rec_facet,
+    Biobank     = "Meta-analysis",
+    x = c(.$AUC_lo, .$AUC_val, .$AUC_hi, .$AUC_val),
+    y = .$y_num + c(0, diamond_h, 0, -diamond_h)
+  )) %>%
+  dplyr::ungroup()
+
+y_breaks <- seq_along(levels(df$cutoff_label))
+y_labels <- levels(df$cutoff_label)
+
+ggplot() +
+
+  annotate("rect", xmin = -Inf, xmax = 0.5, ymin = -Inf, ymax = Inf,
+           fill = "#F4A3A3", alpha = 0.2) +
+  annotate("rect", xmin = 0.5, xmax = 0.7, ymin = -Inf, ymax = Inf,
+           fill = "#F6D186", alpha = 0.2) +
+  annotate("rect", xmin = 0.7, xmax = Inf, ymin = -Inf, ymax = Inf,
+           fill = "#A6D96A", alpha = 0.2) +
+
+  geom_vline(xintercept = 0.5, linetype = "dashed",  colour = "grey40",   linewidth = 0.7) +
+  geom_vline(xintercept = 0.7, linetype = "dotdash", colour = "darkgreen", linewidth = 0.7) +
+
+  geom_errorbarh(data = df_studies,
+                 aes(xmin = AUC_lo, xmax = AUC_hi, y = y_num, colour = Biobank),
+                 height = 0.18, linewidth = 0.9) +
+  geom_point(data = df_studies,
+             aes(x = AUC_val, y = y_num, colour = Biobank, shape = Biobank),
+             size = 3.5, stroke = 0.6) +
+  geom_polygon(data = diamond_df,
+               aes(x = x, y = y, group = label, fill = Biobank),
+               colour = "black", linewidth = 0.3) +
+
+  facet_grid(event_label ~ rec_facet,
+             scales = "free_y", space = "free_y", switch = "y") +
+
+  scale_y_continuous(breaks = y_breaks, labels = y_labels,
+                     expand = expansion(add = 0.6)) +
+  scale_colour_manual(values = c("UK Biobank" = "#1b9e77",
+                                 "All of Us"  = "#d95f02")) +
+  scale_shape_manual(values = c("UK Biobank" = 16,
+                                "All of Us"  = 17)) +
+  scale_fill_manual(values = c("Meta-analysis" = "#7570b3"),
+                    labels = "Meta-analysis") +
+
+  coord_cartesian(xlim = c(0.45, 0.75)) +
+  scale_x_continuous(breaks = seq(0.45, 0.75, 0.05)) +
+
+  labs(x = "Area Under Receiver-Operator-Characteristic Curve (95% CI)",
+       y = "Short Time Between Events, months",
+       title = "EAU Risk Stratification \u2014 Full Sensitivity Analysis",
+       subtitle = "Forest Plot of AUC values across all cutoffs and recurrence-event thresholds.\nSplit by number of events at presentation (rows) \u00d7 recurrence definition (columns)") +
+
+  theme_bw(base_size = 10) +
+  theme(
+    strip.text.x      = element_text(face = "bold", size = 11),
+    strip.text.y.left = element_text(angle = 0, face = "bold", size = 9),
+    strip.background  = element_rect(fill = "grey95"),
+    strip.placement   = "outside",
+    panel.spacing     = unit(0.8, "lines"),
+    legend.position   = "bottom",
+    axis.text.y       = element_text(size = 8),
+    plot.title        = element_text(face = "bold", size = 14),
+    plot.subtitle     = element_text(size = 10)
+  )
+```
+
+**Supplementary Figure 2:** Sensitivity-analysis forest plot of AUC for EAU risk stratification across the full grid of starting-event × inter-event-time cutoff × recurrence-definition combinations (cf. main-text Figure 1, which restricts to ≥1 subsequent event and 6-/24-month cutoffs only). Background bands shade AUC < 0.5 (red), 0.5–0.7 (amber) and ≥ 0.7 (green); dashed line at 0.5 = chance discrimination, dot-dash line at 0.7 = generally accepted clinical-usefulness threshold. Green circle = UK Biobank, orange triangle = All of Us, purple diamond = DerSimonian-Laird random-effects meta-analysis (the diamond's horizontal extent is the pooled 95% CI).
+
 
 \newpage
 
@@ -1710,229 +2280,9 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 26: Transition 1→2, Stratified by Total Stone Events
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_transition_1to2_by_total_events.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_transition_1to2_by_total_events_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 27: Transition 2→3, Stratified by Total Stone Events
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_transition_2to3_by_total_events.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_transition_2to3_by_total_events_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 28: Transition 3→4, Stratified by Total Stone Events
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_transition_3to4_by_total_events.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_transition_3to4_by_total_events_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 29: Transition 4→5, Stratified by Total Stone Events
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_transition_4to5_by_total_events.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_transition_4to5_by_total_events_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-### Number of Prior Events Threshold
-
-#### Supplementary Figure 30: Recurrent Disease – ≥2 Previous Events vs 1 Event
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_2plus.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_2plus_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 31: Recurrent Disease – ≥3 Previous Events vs <3 Events
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_3plus.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_3plus_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-### Number of Prior Events + Time Gaps - KM
-
-#### Supplementary Figure 32: Three-Group Risk – First Event vs Recurrent ≤12 Month Gap vs Recurrent >12 Month Gap
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_12mo.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_12mo_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 33: Three-Group Risk – First Event vs Recurrent ≤18 Month Gap vs Recurrent >18 Month Gap
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_18mo.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_18mo_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 34: Three-Group Risk – First Event vs Recurrent ≤24 Month Gap vs Recurrent >24 Month Gap
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_24mo.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_24mo_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 35: EAU Risk Only – Pooled Transitions
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_eau_only_pooled.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_eau_only_pooled_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 36: Combined Risk – EAU OR Recurrent Disease (≥2 Events + Gap ≤12 Months)
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_combined_eau_recurrent.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_combined_eau_recurrent_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
-#### Supplementary Figure 37: Four-Group Risk Breakdown – EAU × Recurrent Disease (12 Month Cutoff)
-
-\begin{center}
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(A) UK Biobank}\\[0.5em]
-\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_four_group.pdf}
-\end{minipage}
-\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\textbf{(B) All of Us}\\[0.5em]
-\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_four_group_aou.pdf}
-\end{minipage}
-\end{center}
-
-\newpage
-
 ### Recurrent Disease — KM, ROC and DCA per Transition (12-month cutoff)
 
-#### Supplementary Figure 38: KM, ROC and DCA — Transition 1→2, EAU only vs EAU + Recurrent Disease (12-month cutoff)
+#### Supplementary Figure 26: KM, ROC and DCA — Transition 1→2, EAU only vs EAU + Recurrent Disease (12-month cutoff)
 
 Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (KM, ROC, DCA top to bottom). 12-month inter-event gap cutoff.
 
@@ -1980,7 +2330,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 39: KM, ROC and DCA — Transition 2→3, EAU only vs EAU + Recurrent Disease (12-month cutoff)
+#### Supplementary Figure 27: KM, ROC and DCA — Transition 2→3, EAU only vs EAU + Recurrent Disease (12-month cutoff)
 
 Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (KM, ROC, DCA top to bottom). 12-month inter-event gap cutoff.
 
@@ -2028,7 +2378,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 40: KM, ROC and DCA — Transition 3→4, EAU only vs EAU + Recurrent Disease (12-month cutoff)
+#### Supplementary Figure 28: KM, ROC and DCA — Transition 3→4, EAU only vs EAU + Recurrent Disease (12-month cutoff)
 
 Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (KM, ROC, DCA top to bottom). 12-month inter-event gap cutoff.
 
@@ -2076,7 +2426,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 41: KM, ROC and DCA — Transition 4→5, EAU only vs EAU + Recurrent Disease (12-month cutoff)
+#### Supplementary Figure 29: KM, ROC and DCA — Transition 4→5, EAU only vs EAU + Recurrent Disease (12-month cutoff)
 
 Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (KM, ROC, DCA top to bottom). 12-month inter-event gap cutoff.
 
@@ -2126,7 +2476,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 ### Heatmaps - Current Event to Next Event
 
-#### Supplementary Figure 42: Heatmap – AUC, EAU Only vs EAU + Recurrent Disease
+#### Supplementary Figure 30: Heatmap – AUC, EAU Only vs EAU + Recurrent Disease
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2144,7 +2494,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 43: Heatmap – Sensitivity, EAU Only vs EAU + Recurrent Disease
+#### Supplementary Figure 31: Heatmap – Sensitivity, EAU Only vs EAU + Recurrent Disease
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2162,7 +2512,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 44: Heatmap – Specificity, EAU Only vs EAU + Recurrent Disease
+#### Supplementary Figure 32: Heatmap – Specificity, EAU Only vs EAU + Recurrent Disease
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2180,7 +2530,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 45: Heatmap – PPV, EAU Only vs EAU + Recurrent Disease
+#### Supplementary Figure 33: Heatmap – PPV, EAU Only vs EAU + Recurrent Disease
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2198,7 +2548,7 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
-#### Supplementary Figure 46: Heatmap – NPV, EAU Only vs EAU + Recurrent Disease
+#### Supplementary Figure 34: Heatmap – NPV, EAU Only vs EAU + Recurrent Disease
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2216,9 +2566,156 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 
 \newpage
 
+### Number of Prior Events Threshold
+
+#### Supplementary Figure 35: Recurrent Disease — KM by Number of Prior Events
+
+Pooled across all transitions. Top row: ≥2 prior events vs 1 event. Bottom row: ≥3 prior events vs <3 prior events. Within each row, (A) = UK Biobank, (B) = All of Us.
+
+\begin{center}
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank --- ≥2 vs 1 event}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_2plus.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us --- ≥2 vs 1 event}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_2plus_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank --- ≥3 vs <3 events}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_3plus.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us --- ≥3 vs <3 events}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_3plus_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\end{center}
+
+\newpage
+
+### Number of Prior Events + Time Gaps - KM
+
+#### Supplementary Figure 36: Three-Group Risk — First Event vs Recurrent (Long Gap) vs Recurrent (Short Gap)
+
+Three-group KMs at each inter-event-gap cutoff (rows = 12 / 18 / 24 month gap definitions). (A) = UK Biobank, (B) = All of Us in each row.
+
+\begin{center}
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank — 12-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_12mo.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us — 12-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_12mo_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank — 18-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_18mo.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us — 18-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_18mo_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank — 24-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_three_group_24mo.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us — 24-month gap}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_three_group_24mo_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\end{center}
+
+\newpage
+
+#### Supplementary Figure 37: Pooled Transitions — EAU Risk Only vs Combined EAU + Recurrent Disease
+
+Pooled across all transitions. Top row: EAU risk only. Bottom row: combined classifier (EAU OR ≥2 prior events with ≤12-month inter-event gap). (A) = UK Biobank, (B) = All of Us.
+
+\begin{center}
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank — EAU risk only}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_eau_only_pooled.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us — EAU risk only}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_eau_only_pooled_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank — EAU + recurrent disease}\\[0.3em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_combined_eau_recurrent.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us — EAU + recurrent disease}\\[0.3em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_combined_eau_recurrent_aou.pdf}
+\end{minipage}
+
+\vspace{0.5em}
+
+\end{center}
+
+\newpage
+
+#### Supplementary Figure 38: Four-Group Risk Breakdown – EAU × Recurrent Disease (12 Month Cutoff)
+
+\begin{center}
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(A) UK Biobank}\\[0.5em]
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_four_group.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+\centering
+\textbf{(B) All of Us}\\[0.5em]
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_four_group_aou.pdf}
+\end{minipage}
+\end{center}
+
+\newpage
+
 ### Attenuation Test: Does the Time Restriction Change Discrimination?
 
-Three classifiers on the pooled sample (one row per participant, latest transition): *Any recurrence* (≥2 events), *Recent recurrence* (≥2 events AND gap ≤ cutoff), *Distant recurrence* (≥2 events AND gap > cutoff). Panel (C) is the inverse-variance fixed-effect meta-analysis of AUC, drawn in the same idiom as main-text Figure 1/2 (purple diamond = pooled estimate; bands shade AUC < 0.5 red, 0.5–0.7 amber, ≥ 0.7 green). The italic *p*-value beside each combined classifier's diamond is Fisher's combined test of the per-cohort DeLong p-values for that classifier vs *Any recurrence* (the "no time restriction" baseline).
+Three classifiers on the pooled sample (one row per participant, latest transition): *Any recurrence* (≥2 events), *Recent recurrence* (≥2 events AND gap ≤ cutoff), *Distant recurrence* (≥2 events AND gap > cutoff). Panel (C) is the DerSimonian-Laird random-effects meta-analysis of AUC, drawn in the same idiom as main-text Figure 1/2 (purple diamond = pooled estimate; bands shade AUC < 0.5 red, 0.5–0.7 amber, ≥ 0.7 green). The italic *p*-value beside each combined classifier's diamond is Fisher's combined test of the per-cohort DeLong p-values for that classifier vs *Any recurrence* (the "no time restriction" baseline).
 
 ```{r build-attenuation-meta-panels, include=FALSE, warning=FALSE, message=FALSE}
 ukb_att <- read.csv("UKB Recurrence paper results/attenuation_test_auc_metrics.csv",
@@ -2231,12 +2728,21 @@ aou_dl  <- read.csv("AoU Recurrence paper results/attenuation_test_delong_aou.cs
                     check.names = FALSE)
 
 ivm_att <- function(est, lo, hi) {
+  # DerSimonian-Laird random-effects pool (collapses to FE when tau^2 = 0).
   se <- (hi - lo) / (2 * 1.96)
   ok <- is.finite(se) & se > 0 & is.finite(est)
-  if (sum(ok) < 1) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
-  w <- 1 / se[ok]^2
-  pe <- sum(w * est[ok]) / sum(w)
-  pse <- sqrt(1 / sum(w))
+  est <- est[ok]; se <- se[ok]; vi <- se^2
+  k <- length(est)
+  if (k == 0) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * est) / sum(w_fe)
+  Q  <- sum(w_fe * (est - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * est) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
   c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
 }
 
@@ -2302,19 +2808,17 @@ build_attenuation_panel <- function(cut) {
     )
 
   all_rows <- bind_rows(studies, pooled) %>%
-    mutate(Cohort = factor(Cohort, levels = c("UKB","AoU","Pooled")))
-  all_rows$row_id <- factor(
-    paste(as.character(all_rows$Group), all_rows$Cohort, sep = " | "),
-    levels = unlist(lapply(group_levels, function(g)
-      paste(g, c("UKB","AoU","Pooled"), sep = " | ")))
-  )
-  all_rows$row_id <- forcats::fct_rev(all_rows$row_id)
-  all_rows$y_num  <- as.integer(all_rows$row_id)
+    mutate(Cohort = factor(Cohort, levels = c("UKB","AoU","Pooled")),
+           Group  = factor(Group,  levels = group_levels))
+
+  # Within each Group facet the rows are: UKB (top), AoU (middle), Pooled (bottom)
+  all_rows$y_num <- as.integer(factor(all_rows$Cohort,
+                                       levels = c("Pooled","AoU","UKB")))
 
   studies_plot <- all_rows %>% dplyr::filter(Cohort != "Pooled")
   pooled_plot  <- all_rows %>% dplyr::filter(Cohort == "Pooled" & is.finite(AUC_val))
 
-  diamond_h <- 0.30
+  diamond_h <- 0.18
   diamond_df <- pooled_plot %>%
     dplyr::rowwise() %>%
     dplyr::do(data.frame(
@@ -2323,13 +2827,11 @@ build_attenuation_panel <- function(cut) {
       x = c(.$AUC_lo, .$AUC_val, .$AUC_hi, .$AUC_val),
       y = .$y_num + c(0, diamond_h, 0, -diamond_h)
     )) %>%
-    dplyr::ungroup()
+    dplyr::ungroup() %>%
+    mutate(Group = factor(Group, levels = group_levels))
 
-  fisher_anno$row_id <- factor(
-    paste(as.character(fisher_anno$Group), "Pooled", sep = " | "),
-    levels = levels(all_rows$row_id)
-  )
-  fisher_anno$y_num <- as.integer(fisher_anno$row_id)
+  fisher_anno$y_num <- 1L   # Pooled row within each facet
+  fisher_anno$Group <- factor(fisher_anno$Group, levels = group_levels)
 
   p <- ggplot() +
     annotate("rect", xmin = -Inf, xmax = 0.5, ymin = -Inf, ymax = Inf,
@@ -2342,7 +2844,7 @@ build_attenuation_panel <- function(cut) {
     geom_vline(xintercept = 0.7, linetype = "dotdash", colour = "darkgreen", linewidth = 0.7) +
     geom_errorbarh(data = studies_plot,
                    aes(xmin = AUC_lo, xmax = AUC_hi, y = y_num, colour = Cohort),
-                   height = 0.25, linewidth = 0.9) +
+                   height = 0.18, linewidth = 0.9) +
     geom_point(data = studies_plot,
                aes(x = AUC_val, y = y_num, colour = Cohort, shape = Cohort),
                size = 3, na.rm = TRUE) +
@@ -2350,10 +2852,11 @@ build_attenuation_panel <- function(cut) {
                  aes(x = x, y = y, group = Group, fill = Cohort),
                  colour = "black", linewidth = 0.3) +
     geom_text(data = fisher_anno,
-              aes(x = pmin(AUC_hi + 0.005, 0.95), y = y_num, label = label_txt),
-              size = 2.3, hjust = 0, fontface = "italic", colour = "black") +
-    scale_y_continuous(breaks = seq_along(levels(all_rows$row_id)),
-                       labels = levels(all_rows$row_id),
+              aes(x = pmin(AUC_hi + 0.01, 0.95), y = y_num, label = label_txt),
+              size = 2.4, hjust = 0, fontface = "italic", colour = "black") +
+    facet_grid(Group ~ ., switch = "y") +
+    scale_y_continuous(breaks = c(1, 2, 3),
+                       labels = c("Pooled", "AoU", "UKB"),
                        expand = expansion(add = 0.6)) +
     scale_colour_manual(values = c(UKB = "#1b9e77", AoU = "#d95f02"),
                         breaks = c("UKB","AoU"), name = "Cohort") +
@@ -2366,18 +2869,22 @@ build_attenuation_panel <- function(cut) {
     labs(x = "AUC (95% CI)", y = NULL,
          title = paste0("Gap cutoff = ", cut, " months")) +
     theme_bw(base_size = 9) +
-    theme(legend.position = "bottom",
-          axis.text.y = element_text(size = 7),
-          plot.title = element_text(face = "bold", size = 10))
+    theme(strip.text.y.left = element_text(angle = 0, face = "bold", size = 8),
+          strip.background  = element_rect(fill = "grey95"),
+          strip.placement   = "outside",
+          panel.spacing.y   = unit(0.6, "lines"),
+          legend.position   = "bottom",
+          axis.text.y       = element_text(size = 8),
+          plot.title        = element_text(face = "bold", size = 10))
 
   ggsave(paste0("attenuation_meta_panel_", cut, ".pdf"), plot = p,
-         width = 6.5, height = 5)
+         width = 7, height = 5.5)
 }
 
 for (.cut in c(12, 18, 24)) build_attenuation_panel(.cut)
 ```
 
-#### Supplementary Figure 47: Attenuation Test ROC – 12-Month Gap Cutoff
+#### Supplementary Figure 39: Attenuation Test ROC – 12-Month Gap Cutoff
 
 \begin{center}
 \begin{minipage}{0.31\textwidth}
@@ -2401,7 +2908,7 @@ for (.cut in c(12, 18, 24)) build_attenuation_panel(.cut)
 
 \newpage
 
-#### Supplementary Figure 48: Attenuation Test ROC – 18-Month Gap Cutoff
+#### Supplementary Figure 40: Attenuation Test ROC – 18-Month Gap Cutoff
 
 \begin{center}
 \begin{minipage}{0.31\textwidth}
@@ -2425,7 +2932,7 @@ for (.cut in c(12, 18, 24)) build_attenuation_panel(.cut)
 
 \newpage
 
-#### Supplementary Figure 49: Attenuation Test ROC – 24-Month Gap Cutoff
+#### Supplementary Figure 41: Attenuation Test ROC – 24-Month Gap Cutoff
 
 \begin{center}
 \begin{minipage}{0.31\textwidth}
@@ -2451,7 +2958,7 @@ for (.cut in c(12, 18, 24)) build_attenuation_panel(.cut)
 
 ### Whole-Dataset Decision Curve Analysis
 
-#### Supplementary Figure 50: Decision Curve Analysis on the entire transitions_long dataset
+#### Supplementary Figure 42: Decision Curve Analysis on the entire transitions_long dataset
 
 \begin{center}
 \begin{minipage}{0.48\textwidth}
@@ -2467,166 +2974,12 @@ for (.cut in c(12, 18, 24)) build_attenuation_panel(.cut)
 \end{minipage}
 \end{center}
 
-**Supplementary Figure 50:** Decision curve analysis (DCA) on the same whole-dataset sample used in main-text Figure 2 — every participant contributes one row per transition they reach (1→2, 2→3, 3→4, 4→5), with EAU risk re-ascertained at each transition's starting event. Each panel overlays four classifiers — EAU only, EAU + ≥2 events, EAU + ≥3 events, EAU + ≥4 events — alongside the standard "Treat all" / "Treat none" reference lines. Net Benefit is plotted against threshold probability. (A) UK Biobank, (B) All of Us. DCA is reported per cohort because Net Benefit depends on cohort-specific outcome prevalence and is not amenable to a simple meta-analytic pool.
+**Supplementary Figure 1:** Decision curve analysis (DCA) on the same whole-dataset sample used in main-text Figure 2 — every participant contributes one row per transition they reach (1→2, 2→3, 3→4, 4→5), with EAU risk re-ascertained at each transition's starting event. Each panel overlays four classifiers — EAU only, EAU + ≥2 events, EAU + ≥3 events, EAU + ≥4 events — alongside the standard "Treat all" / "Treat none" reference lines. Net Benefit is plotted against threshold probability. (A) UK Biobank, (B) All of Us. DCA is reported per cohort because Net Benefit depends on cohort-specific outcome prevalence and is not amenable to a simple meta-analytic pool.
 
 \newpage
 
 ### Summary Plots
-#### Supplementary Figure 51: Sensitivity-analysis forest plot — full grid of cutoffs × recurrence definitions
-
-```{r supfig55-forest, fig.width=11, fig.height=16, fig.align="center", out.width="100%"}
-# Sensitivity-analysis forest plot \u2014 same idiom as main-text Figure 1 but
-# without the filters that restricted Figure 1 to the \u22651 subsequent-event
-# definition and the 6-/24-month cutoffs only. Shows every (event \u00d7 cutoff \u00d7
-# recurrence-definition) combination.
-
-# --- Load + combine ---
-ukb <- read.csv("UKB Recurrence paper results/prognostic_accuracy_grid_search_results.csv")
-aou <- read.csv("AoU Recurrence paper results/prognostic_accuracy_grid_search_results_aou.csv")
-aou <- aou[!duplicated(aou[, c("Starting_Point","Time_Cutoff_Months","Recurrence_Definition")]), ]
-
-event_map <- c("Index Date"   = "First Event",
-               "Second Event" = "Second Event",
-               "Third Event"  = "Third Event",
-               "Fourth Event" = "Fourth Event")
-
-make_label <- function(sp, c) {
-  e <- event_map[sp]
-  if (is.na(c) | c == "NA") e else paste0(e, " (", c, "mo)")
-}
-
-ukb$Biobank <- "UK Biobank"
-ukb$label   <- mapply(make_label, ukb$Starting_Point, as.character(ukb$Time_Cutoff_Months))
-aou$Biobank <- "All of Us"
-aou$label   <- mapply(make_label, aou$Starting_Point, as.character(aou$Time_Cutoff_Months))
-
-cols <- c("label","Starting_Point","Time_Cutoff_Months","Recurrence_Definition",
-          "AUC_val","AUC_lo","AUC_hi","Biobank")
-df <- rbind(ukb[, cols], aou[, cols])
-df$AUC_val <- as.numeric(df$AUC_val); df$AUC_lo <- as.numeric(df$AUC_lo); df$AUC_hi <- as.numeric(df$AUC_hi)
-
-# --- Inverse-variance fixed-effect meta-analysis on AUC ---
-meta_auc <- df %>%
-  mutate(SE = (AUC_hi - AUC_lo) / (2 * 1.96)) %>%
-  filter(is.finite(SE) & SE > 0) %>%
-  group_by(label, Starting_Point, Time_Cutoff_Months, Recurrence_Definition) %>%
-  summarise(w_sum   = sum(1 / SE^2, na.rm = TRUE),
-            AUC_val = sum((1 / SE^2) * AUC_val, na.rm = TRUE) / w_sum,
-            SE_pool = sqrt(1 / w_sum),
-            AUC_lo  = AUC_val - 1.96 * SE_pool,
-            AUC_hi  = AUC_val + 1.96 * SE_pool,
-            .groups = "drop") %>%
-  mutate(Biobank = "Meta-analysis") %>%
-  dplyr::select(all_of(cols))
-df <- rbind(df, meta_auc)
-
-# --- Order ---
-event_order <- c("First Event","Second Event","Third Event","Fourth Event")
-df$event_label <- event_map[df$Starting_Point]
-df$event_label <- factor(df$event_label, levels = event_order)
-df$cutoff_num  <- ifelse(is.na(df$Time_Cutoff_Months), 0, as.numeric(df$Time_Cutoff_Months))
-df$cutoff_label <- ifelse(df$cutoff_num == 0, " ",
-                          paste0(df$Time_Cutoff_Months, " months"))
-# Place 6mo on top \u2192 make it the LAST level. Ordering: " ", 24, 21, 18, 15, 12, 9, 6
-cutoff_levels <- c(" ", paste0(c(24, 21, 18, 15, 12, 9, 6), " months"))
-df$cutoff_label <- factor(df$cutoff_label, levels = cutoff_levels)
-
-df$Biobank <- factor(df$Biobank, levels = c("UK Biobank","All of Us","Meta-analysis"))
-
-rec_labels <- c("\u22651 subsequent stone events" = "\u2265 1 Subsequent Stone Events",
-                "\u22652 subsequent stone events" = "\u2265 2 Subsequent Stone Events",
-                "\u22653 subsequent stone events" = "\u2265 3 Subsequent Stone Events")
-df$rec_facet <- rec_labels[df$Recurrence_Definition]
-df$rec_facet <- factor(df$rec_facet, levels = rec_labels)
-
-# --- Studies + meta-analysis split + manual dodge ---
-df_studies <- df %>% dplyr::filter(Biobank != "Meta-analysis")
-df_meta    <- df %>% dplyr::filter(Biobank == "Meta-analysis")
-
-dodge_w <- 0.7
-df_studies$y_num <- as.numeric(df_studies$cutoff_label) +
-  dplyr::case_when(
-    df_studies$Biobank == "UK Biobank" ~ +dodge_w / 3,
-    df_studies$Biobank == "All of Us"  ~  0
-  )
-df_meta$y_num <- as.numeric(df_meta$cutoff_label) - (dodge_w / 3)
-
-# --- Diamond polygon vertices for meta-analysis ---
-diamond_h <- 0.13
-diamond_df <- df_meta %>%
-  dplyr::rowwise() %>%
-  dplyr::do(data.frame(
-    label       = .$label,
-    event_label = .$event_label,
-    rec_facet   = .$rec_facet,
-    Biobank     = "Meta-analysis",
-    x = c(.$AUC_lo, .$AUC_val, .$AUC_hi, .$AUC_val),
-    y = .$y_num + c(0, diamond_h, 0, -diamond_h)
-  )) %>%
-  dplyr::ungroup()
-
-y_breaks <- seq_along(levels(df$cutoff_label))
-y_labels <- levels(df$cutoff_label)
-
-ggplot() +
-
-  annotate("rect", xmin = -Inf, xmax = 0.5, ymin = -Inf, ymax = Inf,
-           fill = "#F4A3A3", alpha = 0.2) +
-  annotate("rect", xmin = 0.5, xmax = 0.7, ymin = -Inf, ymax = Inf,
-           fill = "#F6D186", alpha = 0.2) +
-  annotate("rect", xmin = 0.7, xmax = Inf, ymin = -Inf, ymax = Inf,
-           fill = "#A6D96A", alpha = 0.2) +
-
-  geom_vline(xintercept = 0.5, linetype = "dashed",  colour = "grey40",   linewidth = 0.7) +
-  geom_vline(xintercept = 0.7, linetype = "dotdash", colour = "darkgreen", linewidth = 0.7) +
-
-  geom_errorbarh(data = df_studies,
-                 aes(xmin = AUC_lo, xmax = AUC_hi, y = y_num, colour = Biobank),
-                 height = 0.18, linewidth = 0.9) +
-  geom_point(data = df_studies,
-             aes(x = AUC_val, y = y_num, colour = Biobank, shape = Biobank),
-             size = 3.5, stroke = 0.6) +
-  geom_polygon(data = diamond_df,
-               aes(x = x, y = y, group = label, fill = Biobank),
-               colour = "black", linewidth = 0.3) +
-
-  facet_grid(event_label ~ rec_facet,
-             scales = "free_y", space = "free_y", switch = "y") +
-
-  scale_y_continuous(breaks = y_breaks, labels = y_labels,
-                     expand = expansion(add = 0.6)) +
-  scale_colour_manual(values = c("UK Biobank" = "#1b9e77",
-                                 "All of Us"  = "#d95f02")) +
-  scale_shape_manual(values = c("UK Biobank" = 16,
-                                "All of Us"  = 17)) +
-  scale_fill_manual(values = c("Meta-analysis" = "#7570b3"),
-                    labels = "Meta-analysis") +
-
-  coord_cartesian(xlim = c(0.45, 0.75)) +
-  scale_x_continuous(breaks = seq(0.45, 0.75, 0.05)) +
-
-  labs(x = "Area Under Receiver-Operator-Characteristic Curve (95% CI)",
-       y = "Short Time Between Events, months",
-       title = "EAU Risk Stratification \u2014 Full Sensitivity Analysis",
-       subtitle = "Forest Plot of AUC values across all cutoffs and recurrence-event thresholds.\nSplit by number of events at presentation (rows) \u00d7 recurrence definition (columns)") +
-
-  theme_bw(base_size = 10) +
-  theme(
-    strip.text.x      = element_text(face = "bold", size = 11),
-    strip.text.y.left = element_text(angle = 0, face = "bold", size = 9),
-    strip.background  = element_rect(fill = "grey95"),
-    strip.placement   = "outside",
-    panel.spacing     = unit(0.8, "lines"),
-    legend.position   = "bottom",
-    axis.text.y       = element_text(size = 8),
-    plot.title        = element_text(face = "bold", size = 14),
-    plot.subtitle     = element_text(size = 10)
-  )
-```
-
-**Supplementary Figure 51:** Sensitivity-analysis forest plot of AUC for EAU risk stratification across the full grid of starting-event × inter-event-time cutoff × recurrence-definition combinations (cf. main-text Figure 1, which restricts to ≥1 subsequent event and 6-/24-month cutoffs only). Background bands shade AUC < 0.5 (red), 0.5–0.7 (amber) and ≥ 0.7 (green); dashed line at 0.5 = chance discrimination, dot-dash line at 0.7 = generally accepted clinical-usefulness threshold. Green circle = UK Biobank, orange triangle = All of Us, purple diamond = inverse-variance fixed-effect meta-analysis (the diamond's horizontal extent is the pooled 95% CI).
-
-#### Supplementary Figure 52: Sensitivity-analysis 5-year recurrence likelihood heatmap
+#### Supplementary Figure 43: Sensitivity-analysis 5-year recurrence likelihood heatmap
 
 ```{r supfig56-heatmap-likelihood, fig.width=14, fig.height=9, out.width="100%"}
 # Sensitivity-analysis heatmap — same visual idiom as main-text Figure 3
@@ -2702,21 +3055,38 @@ df_scaled <- df %>%
   mutate(pct_scaled = scales::rescale(pct, to = c(0, 100))) %>%
   ungroup()
 
-# Inverse-variance fixed-effect meta-analysis on the LOGIT scale (matches Figure 3)
+# DerSimonian-Laird random-effects meta-analysis on the LOGIT scale (matches Figure 3)
+re_meta_logit <- function(theta, vi) {
+  theta <- unname(theta); vi <- unname(vi)
+  k <- length(theta)
+  if (k < 1) return(c(theta = NA_real_, se = NA_real_))
+  if (k == 1) return(c(theta = theta[1], se = sqrt(vi[1])))
+  w_fe <- 1 / vi
+  fe_pe <- sum(w_fe * theta) / sum(w_fe)
+  Q  <- sum(w_fe * (theta - fe_pe)^2)
+  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2 <- max(0, (Q - (k - 1)) / C)
+  w_re <- 1 / (vi + tau2)
+  pe   <- sum(w_re * theta) / sum(w_re)
+  pse  <- sqrt(1 / sum(w_re))
+  c(theta = pe, se = pse)
+}
+
 meta_df <- df %>%
   mutate(p = pct / 100, lo_p = lo / 100, hi_p = hi / 100,
          theta    = log(p    / (1 - p)),
          theta_lo = log(lo_p / (1 - lo_p)),
          theta_hi = log(hi_p / (1 - hi_p)),
          se = (theta_hi - theta_lo) / (2 * 1.96),
-         w  = 1 / se^2) %>%
+         vi = se^2) %>%
   group_by(event_label, risk_group, rec_facet) %>%
-  summarise(theta_meta = sum(w * theta) / sum(w),
-            se_meta    = sqrt(1 / sum(w)),
-            p_meta     = 1 / (1 + exp(-theta_meta)),
-            lo_meta    = 1 / (1 + exp(-(theta_meta - 1.96 * se_meta))),
-            hi_meta    = 1 / (1 + exp(-(theta_meta + 1.96 * se_meta))),
-            .groups    = "drop") %>%
+  summarise(pe = list(re_meta_logit(theta, vi)), .groups = "drop") %>%
+  mutate(theta_meta = sapply(pe, `[`, "theta"),
+         se_meta    = sapply(pe, `[`, "se"),
+         p_meta     = 1 / (1 + exp(-theta_meta)),
+         lo_meta    = 1 / (1 + exp(-(theta_meta - 1.96 * se_meta))),
+         hi_meta    = 1 / (1 + exp(-(theta_meta + 1.96 * se_meta)))) %>%
+  dplyr::select(-pe) %>%
   mutate(
     Biobank    = factor("Meta-analysis", levels = c("UKB","AoU","Meta-analysis")),
     pct        = p_meta  * 100,
@@ -2767,5 +3137,5 @@ ggplot(df_plot, aes(x = risk_group, y = event_label, fill = pct_scaled)) +
   )
 ```
 
-**Supplementary Figure 52:** Sensitivity-analysis heatmap of 5-year cumulative recurrence likelihood, in the same visual idiom as main-text Figure 3. Rows = Biobank (UKB / AoU / inverse-variance fixed-effect meta-analysis on the logit scale); columns = recurrence definition (≥1, ≥2, ≥3 subsequent stone events). Within each panel, cells show the proportion of high-risk vs low-risk participants who recurred within 5 years, stratified by their starting stone event (1st / 2nd / 3rd / 4th). For non-index transitions a 12-month inter-event cutoff is used to define the high-risk-by-recent-recurrence component; for the index transition no inter-event cutoff applies. Cells are coloured by likelihood rescaled within each cohort (0–100); cell text shows the absolute percentage and 95% CI.
+**Supplementary Figure 43:** Sensitivity-analysis heatmap of 5-year cumulative recurrence likelihood, in the same visual idiom as main-text Figure 3. Rows = Biobank (UKB / AoU / DerSimonian-Laird random-effects meta-analysis on the logit scale); columns = recurrence definition (≥1, ≥2, ≥3 subsequent stone events). Within each panel, cells show the proportion of high-risk vs low-risk participants who recurred within 5 years, stratified by their starting stone event (1st / 2nd / 3rd / 4th). For non-index transitions a 12-month inter-event cutoff is used to define the high-risk-by-recent-recurrence component; for the index transition no inter-event cutoff applies. Cells are coloured by likelihood rescaled within each cohort (0–100); cell text shows the absolute percentage and 95% CI.
 
