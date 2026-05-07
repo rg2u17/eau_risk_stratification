@@ -133,7 +133,7 @@ vsc_10_aou <- fmt_vsc(aou_vsc, 10)
 \multicolumn{2}{l}{Age at First clinically significant stone event, mean $\pm$SD} & 52$\pm$11 & 52$\pm$15 \\
 \multicolumn{2}{l}{Men, n (\%)} & 5,850 (70\%) & 5,038 (45\%) \\
 \multicolumn{2}{l}{Follow-up, median years (IQR)} & 21.9 (15.0--40.4) & 7.3 (5.0--7.5) \\
-\multicolumn{2}{l}{High Risk as per EAU\textsuperscript{\#}, n (\%)} & 3,103 (37\%) & 2,739 (24\%) \\
+\multicolumn{2}{l}{High Risk as per EAU\textsuperscript{\#}, n (\%)} & 3,103 (37\%) & 2,032 (18.2\%) \\
 \midrule
 \multirow{5}{*}{\makecell[l]{Initial Presentation/\\Intervention, n (\%)}} & PCNL & 471 (6\%) & 186 (2\%) \\
 & ESWL & 1,287 (15\%) & 380 (3\%) \\
@@ -177,8 +177,8 @@ Numbers of patients with High-Risk characteristics at time of first stone event 
 \midrule
 \multirow{9}{*}{\makecell[l]{Diseases associated\\with stone formation}} & Hyperparathyroidism & 171 (2\%) & 374 (3\%) \\
 & Metabolic syndrome & 2,317 (27\%) & 254 (2\%) \\
-& Nephrocalcinosis & 12 (0.1\%) & 752 (7\%) \\
-& Polycystic kidney disease (PKD) & 53 (0.6\%) & 87 (1\%) \\
+& Nephrocalcinosis & 12 (0.1\%) & 20 (0.2\%) \\
+& Polycystic kidney disease (PKD) & 53 (0.6\%) & 58 (0.5\%) \\
 & GI diseases and bariatric surgery & 527 (6\%) & 953 (9\%) \\
 & Increased levels of vitamin D & 0 & 0 \\
 & Sarcoidosis & 45 (0.5\%) & 84 (1\%) \\
@@ -195,7 +195,7 @@ Numbers of patients with High-Risk characteristics at time of first stone event 
 \midrule
 \multicolumn{2}{l}{Drug-induced stone formation} & & \\
 \midrule
-\multirow{6}{*}{\makecell[l]{Anatomical abnormalities\\associated with stone\\formation}} & Medullary sponge kidney (tubular ectasia) & 12 (0.1\%) & 752 (7\%) \\
+\multirow{6}{*}{\makecell[l]{Anatomical abnormalities\\associated with stone\\formation}} & Medullary sponge kidney (tubular ectasia) & 12 (0.1\%) & 20 (0.2\%) \\
 & Ureteropelvic junction (UPJ) obstruction & 98 (1.1\%) & 47 (0.4\%) \\
 & Calyceal diverticulum, calyceal cyst & 0 & 0 \\
 & Vesico-uretero-renal reflux & 9 (0.1\%) & 29 (0.3\%) \\
@@ -332,7 +332,7 @@ Within 5 yr   & `r fmt_pct(aou_iet, "1→2", "pct_within_5yr")` & `r fmt_pct(aou
 
 ## Supplementary Table 4. Pairwise classifier comparisons (whole-dataset analysis, Figure 2)
 
-Pairwise tests were computed within each cohort on the entire transitions-long sample using a non-parametric cluster bootstrap that resamples PARTICIPANTS (not transitions) — addressing the within-patient correlation introduced when one participant contributes multiple transition-rows. Cluster-bootstrap two-sided p-values are then combined across cohorts via Fisher's method. Pooled AUCs use DerSimonian-Laird random-effects meta-analysis (UKB + AoU). The six comparison families correspond to the analysis in main-text Figure 2.
+Pairwise tests were computed within each cohort on the entire transitions-long sample using a non-parametric cluster bootstrap that resamples PARTICIPANTS (not transitions) — addressing the within-patient correlation introduced when one participant contributes multiple transition-rows. Cluster-bootstrap two-sided p-values are then combined across cohorts via Fisher's method. Pooled AUCs use DerSimonian-Laird random-effects meta-analysis (UKB + AoU); between-cohort heterogeneity for each classifier (Cochran's $Q$, $I^2$, $\tau^2$, $p_Q$) is reported separately in **Supplementary Table 5**. The six comparison families correspond to the analysis in main-text Figure 2.
 
 ```{r supp-table-4-pairwise-comparisons, results='asis'}
 # --- Load pooled meta-AUC table (used for Figure 2) and pairwise DeLong tables ---
@@ -362,7 +362,8 @@ load_or_empty_metrics <- function(path) {
 ukb_m <- load_or_empty_metrics("UKB Recurrence paper results/recurrent_disease_whole_dataset_metrics.csv")
 aou_m <- load_or_empty_metrics("AoU Recurrence paper results/recurrent_disease_whole_dataset_metrics_aou.csv")
 
-# DerSimonian-Laird random-effects meta-analysis of AUC for a given classifier.
+# DerSimonian-Laird random-effects meta-analysis of AUC for a given classifier,
+# with between-cohort heterogeneity statistics (Cochran's Q, I², τ², df, p_Q).
 # Cohort-specific AUCs come from the cluster-bootstrap CIs in the per-cohort
 # whole-dataset metrics CSVs.
 ivm_auc <- function(label) {
@@ -370,22 +371,31 @@ ivm_auc <- function(label) {
     ukb_m[ukb_m$Comparison == label, c("AUC_val","AUC_lo","AUC_hi"), drop = FALSE],
     aou_m[aou_m$Comparison == label, c("AUC_val","AUC_lo","AUC_hi"), drop = FALSE]
   )
-  if (nrow(rows) == 0) return(c(est = NA, lo = NA, hi = NA))
+  na_out <- c(est = NA_real_, lo = NA_real_, hi = NA_real_,
+              Q = NA_real_, df = NA_real_, I2 = NA_real_, tau2 = NA_real_,
+              p_Q = NA_real_, k = NA_real_)
+  if (nrow(rows) == 0) return(na_out)
   se <- (rows$AUC_hi - rows$AUC_lo) / (2 * 1.96)
   ok <- is.finite(se) & se > 0 & is.finite(rows$AUC_val)
   est <- rows$AUC_val[ok]; se <- se[ok]; vi <- se^2
   k <- length(est)
-  if (k == 0) return(c(est = NA, lo = NA, hi = NA))
-  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se))
-  w_fe <- 1 / vi
+  if (k == 0) return(na_out)
+  if (k == 1) return(c(est = est, lo = est - 1.96*se, hi = est + 1.96*se,
+                       Q = NA_real_, df = NA_real_, I2 = NA_real_,
+                       tau2 = NA_real_, p_Q = NA_real_, k = 1))
+  w_fe  <- 1 / vi
   fe_pe <- sum(w_fe * est) / sum(w_fe)
-  Q  <- sum(w_fe * (est - fe_pe)^2)
-  C  <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
-  tau2 <- max(0, (Q - (k - 1)) / C)
+  Q     <- sum(w_fe * (est - fe_pe)^2)
+  df_Q  <- k - 1
+  C     <- sum(w_fe) - sum(w_fe^2) / sum(w_fe)
+  tau2  <- max(0, (Q - df_Q) / C)
+  I2    <- max(0, (Q - df_Q) / Q) * 100   # Higgins & Thompson (2002)
+  p_Q   <- 1 - pchisq(Q, df = df_Q)
   w_re <- 1 / (vi + tau2)
   pe   <- sum(w_re * est) / sum(w_re)
   pse  <- sqrt(1 / sum(w_re))
-  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse)
+  c(est = pe, lo = pe - 1.96 * pse, hi = pe + 1.96 * pse,
+    Q = Q, df = df_Q, I2 = I2, tau2 = tau2, p_Q = p_Q, k = k)
 }
 
 # Look up the DeLong p in a pairwise table (handles either order of a/b)
@@ -404,7 +414,10 @@ fisher_combine <- function(ps) {
 }
 
 fmt_auc_ci <- function(v) {
-  if (any(is.na(v))) return("--")
+  # Only check the three fields we actually use; ivm_auc() now also returns
+  # heterogeneity statistics (Q, df, I², τ², p_Q, k) which can legitimately
+  # be NA for single-cohort cases without invalidating the est/lo/hi triple.
+  if (any(is.na(c(v["est"], v["lo"], v["hi"])))) return("--")
   sprintf("%.3f (%.3f--%.3f)", v["est"], v["lo"], v["hi"])
 }
 fmt_p_combined <- function(p) {
@@ -475,17 +488,96 @@ kbl(display, format = "latex", booktabs = TRUE, escape = FALSE,
     longtable = TRUE,
     col.names = c("High Risk Definition A", "High Risk Definition B",
                   "AUC A (95\\% CI)", "AUC B (95\\% CI)",
-                  "UKB DeLong $p$", "AoU DeLong $p$", "Fisher combined $p$")) %>%
+                  "UKB cluster-boot $p$",
+                  "AoU cluster-boot $p$",
+                  "Fisher combined $p$")) %>%
   kable_styling(latex_options = c("repeat_header", "hold_position"),
                 font_size = 7) %>%
   pack_rows(index = group_index) %>%
-  column_spec(1, width = "4cm") %>%
-  column_spec(2, width = "4cm") %>%
+  # Constrain all column widths so the 7-col longtable fits inside the
+  # 16.5-cm text width without truncating the right-most (Fisher combined)
+  # column.
+  column_spec(1, width = "3.5cm") %>%
+  column_spec(2, width = "3.5cm") %>%
+  column_spec(3, width = "2.0cm") %>%
+  column_spec(4, width = "2.0cm") %>%
+  column_spec(5, width = "1.5cm") %>%
+  column_spec(6, width = "1.5cm") %>%
+  column_spec(7, width = "1.5cm") %>%
   # Vertically merge consecutive duplicate values in column 1 (High Risk
   # Definition A) and column 3 (AUC A). pack_rows boundaries naturally
   # break the merge, so collapsing happens within each family block only.
   collapse_rows(columns = c(1, 3), valign = "middle", latex_hline = "none")
 ```
+
+\newpage
+
+## Supplementary Table 5. Between-cohort heterogeneity for the whole-dataset pooled AUCs
+
+Heterogeneity statistics to accompany Figure 2.
+
+\begin{landscape}
+
+```{r supp-table-5-heterogeneity, results='asis'}
+# Reuses ukb_m, aou_m, ivm_auc(), all_classifiers from the Sup Table 4 chunk.
+# ivm_auc() now returns Q, df, I2, tau2, p_Q in addition to est/lo/hi.
+fmt_p_q <- function(p) {
+  if (is.na(p)) return("--")
+  if (p < 0.001) return("<0.001")
+  sprintf("%.3f", p)
+}
+fmt_q   <- function(q)  if (is.na(q))  "--" else sprintf("%.2f", q)
+fmt_i2  <- function(i)  if (is.na(i))  "--" else sprintf("%.1f\\%%", i)
+fmt_t2  <- function(t)  if (is.na(t))  "--" else sprintf("%.2e", t)
+fmt_per_cohort <- function(metrics_df, label) {
+  r <- metrics_df[metrics_df$Comparison == label, , drop = FALSE]
+  if (nrow(r) == 0) return("--")
+  sprintf("%.3f (%.3f--%.3f)",
+          as.numeric(r$AUC_val[1]),
+          as.numeric(r$AUC_lo[1]),
+          as.numeric(r$AUC_hi[1]))
+}
+
+het_rows <- do.call(rbind, lapply(all_classifiers, function(lbl) {
+  v <- ivm_auc(lbl)
+  data.frame(
+    Classifier      = lbl,
+    `UKB AUC (95% CI)`    = fmt_per_cohort(ukb_m, lbl),
+    `AoU AUC (95% CI)`    = fmt_per_cohort(aou_m, lbl),
+    `Pooled AUC (95% CI)` = fmt_auc_ci(v),
+    Q       = fmt_q(unname(v["Q"])),
+    df      = if (is.na(v["df"])) "--" else as.character(as.integer(v["df"])),
+    `I^2`   = fmt_i2(unname(v["I2"])),
+    `tau^2` = fmt_t2(unname(v["tau2"])),
+    `p_Q`   = fmt_p_q(unname(v["p_Q"])),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+}))
+
+kbl(het_rows, format = "latex", booktabs = TRUE, escape = FALSE,
+    longtable = FALSE,                       # landscape page → single table OK
+    align = c("l", rep("c", 8)),
+    col.names = c("Classifier",
+                  "UKB AUC (95\\% CI)", "AoU AUC (95\\% CI)",
+                  "Pooled AUC (95\\% CI)",
+                  "$Q$", "df", "$I^2$", "$\\tau^2$", "$p_Q$")) %>%
+  kable_styling(latex_options = c("hold_position"),
+                font_size = 8,
+                position = "center") %>%
+  column_spec(1, width = "5.0cm") %>%
+  column_spec(2, width = "2.6cm") %>%
+  column_spec(3, width = "2.6cm") %>%
+  column_spec(4, width = "2.6cm") %>%
+  column_spec(5, width = "1.2cm") %>%
+  column_spec(6, width = "0.7cm") %>%
+  column_spec(7, width = "1.2cm") %>%
+  column_spec(8, width = "1.5cm") %>%
+  column_spec(9, width = "1.2cm")
+```
+
+\end{landscape}
+
 
 \newpage
 
@@ -1558,13 +1650,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_6.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_6.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_6_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_6_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1606,13 +1698,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1654,13 +1746,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_18.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_18.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_18_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_18_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1702,13 +1794,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_24.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_first_date_cutoff_24.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_24_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_second_event_cutoff_24_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1752,13 +1844,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_6.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_6.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_6_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_6_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1800,13 +1892,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1848,13 +1940,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_18.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_18.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_18_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_18_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1896,13 +1988,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_24.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_second_date_cutoff_24.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_24_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_third_event_cutoff_24_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1946,13 +2038,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_6.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_6.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_6_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_6_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -1994,13 +2086,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2042,13 +2134,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_18.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_18.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_18_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_18_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2090,13 +2182,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_24.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/grid_search_km_third_date_cutoff_24.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_24_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/grid_search_km_fourth_event_cutoff_24_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2290,13 +2382,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_1to2_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_1to2_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_1to2_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_1to2_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2338,13 +2430,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_2to3_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_2to3_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_2to3_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_2to3_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2386,13 +2478,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_3to4_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_3to4_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_3to4_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_3to4_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
@@ -2434,13 +2526,13 @@ Left column: UK Biobank (KM, ROC, DCA top to bottom). Right column: All of Us (K
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(A) UKB – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_4to5_cutoff_12.pdf}
+\includegraphics[width=\textwidth]{UKB Recurrence paper results/recurrent_disease_km_prognostic_transition_4to5_cutoff_12.pdf}
 \end{minipage}
 \hfill
 \begin{minipage}{0.48\textwidth}
 \centering
 \textbf{(B) AoU – KM}\\[0.3em]
-\includegraphics[page=2,width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_4to5_cutoff_12_aou.pdf}
+\includegraphics[width=\textwidth]{AoU Recurrence paper results/recurrent_disease_km_prognostic_transition_4to5_cutoff_12_aou.pdf}
 \end{minipage}
 
 \vspace{0.6em}
