@@ -1,6 +1,8 @@
 ---
-title: "Prognostic Accuracy Grid Search: Starting Points x Recurrence Definitions"
+title: 'Prognostic Accuracy Grid Search: Starting Points x Recurrence Definitions'
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -513,7 +515,16 @@ generate_roc_plot_grid <- function(ds, plot_title, risk_col = "high_risk_with_ti
 
   if (nrow(roc_combined_df) == 0) return(NULL)
 
-  auc_table <- tableGrob(auc_table_df, rows = NULL, theme = ttheme_minimal(base_size = 9))
+  # Friendly column names for the inset table \u2014 no underscore, full
+  # "AUC (95% CI)" header, and "Recurrence" framing for the row labels.
+  auc_table_disp <- auc_table_df
+  names(auc_table_disp) <- c("Recurrence", "AUC (95% CI)")
+
+  auc_table <- tableGrob(
+    auc_table_disp,
+    rows  = NULL,
+    theme = ttheme_minimal(base_size = 7)
+  )
   auc_table_boxed <- grobTree(
     rectGrob(gp = gpar(col = "black", fill = "white", lwd = 1)),
     auc_table
@@ -526,14 +537,19 @@ generate_roc_plot_grid <- function(ds, plot_title, risk_col = "high_risk_with_ti
     geom_line(data = roc_combined_df,
               aes(x = fpr, y = tpr, color = Comparison), linewidth = 1) +
     geom_abline(linetype = "dashed", alpha = 0.6) +
-    labs(x = "False Positive Rate", y = "True Positive Rate", title = plot_title) +
+    labs(x = "False Positive Rate", y = "True Positive Rate",
+         title  = plot_title,
+         colour = "Recurrence definition",
+         fill   = "Recurrence definition") +
     scale_color_manual(values = colors_rec) +
     scale_fill_manual(values = colors_rec) +
     coord_equal() +
     theme_bw(base_size = 12) +
     theme(legend.position = "bottom") +
+    # Inset extended further left (xmin 0.55 \u2192 0.40) so the wider
+    # "AUC (95% CI)" / "\u2265N subsequent stone events" text doesn't spill.
     annotation_custom(grob = auc_table_boxed,
-                      xmin = 0.55, xmax = 1, ymin = 0.05, ymax = 0.3)
+                      xmin = 0.40, xmax = 1.00, ymin = 0.04, ymax = 0.30)
 }
 
 generate_km_plot_grid <- function(ds, plot_title, risk_col = "high_risk_with_time") {
@@ -643,6 +659,245 @@ metrics_index <- lapply(seq_along(recurrence_thresholds), function(i) {
 }) %>% bind_rows()
 
 metrics_index %>% gt() %>% gt_theme_espn()
+```
+
+## Per-Condition Prognostic Accuracy (Individual EAU Risk Factors)
+
+Each individual EAU high-risk condition is evaluated as a **standalone binary
+classifier** (condition present vs absent — no age modifier, no combination)
+for predicting the **next stone event**. The outcome is the next symptomatic
+event from each transition's starting point: recurrers are cases
+(`actual = 1`); non-recurrers with at least the 5-year follow-up horizon are
+controls (`actual = 0`); non-recurrers with insufficient follow-up are excluded
+as ambiguous (identical censoring rule to the main analyses). Condition status
+is re-ascertained **as of each transition's starting event** (using the
+per-event `pmhx_cleaned_1`–`pmhx_cleaned_4` tibbles). For a single binary marker
+AUC = (sensitivity + specificity) / 2; its 95% CI is the DeLong interval
+(`pROC::ci.auc`). All other 95% CIs are exact (Clopper–Pearson) binomial
+intervals.
+
+We report one table per transition (mimicking the per-event analyses) —
+1st→2nd, 2nd→3rd, 3rd→4th, 4th→5th stone event — plus a pooled **"any event"**
+table that stacks every transition-row (a participant contributes one row per
+transition they reach).
+
+```{r per-condition-setup, warning=FALSE, message=FALSE}
+# --- Shared helpers --------------------------------------------------------
+.fmt3  <- function(v, lo, hi)
+  if (is.na(v)) "—" else sprintf("%.3f (%.3f–%.3f)", v, lo, hi)
+.cp_ci <- function(x, n)
+  if (n == 0) c(NA_real_, NA_real_) else as.numeric(binom.test(x, n)$conf.int)
+
+# Per-participant condition flags from a given pmhx tibble (one row/participant).
+get_cond_flags <- function(pmhx_df) {
+  dates_detailed %>%
+    dplyr::distinct(participant_id) %>%
+    left_join(pmhx_df, by = "participant_id") %>%
+    mutate(across(any_of(eau_risk_cols), ~ replace_na(as.integer(.x >= 1), 0L))) %>%
+    group_by(participant_id) %>%
+    summarise(across(any_of(eau_risk_cols),
+                     ~ as.integer(max(.x, na.rm = TRUE) >= 1)),
+              .groups = "drop")
+}
+
+# (actual next-event outcome) + (condition flags as-of the starting event).
+build_cond_dataset <- function(start_col, pmhx_df) {
+  ds <- build_analysis_dataset(start_col)
+  prep_roc_grid(ds, thresh = 1) %>%
+    dplyr::select(participant_id, actual) %>%
+    inner_join(get_cond_flags(pmhx_df), by = "participant_id")
+}
+
+binary_condition_metrics <- function(actual, pred, label) {
+  ok <- !is.na(actual) & !is.na(pred)
+  actual <- actual[ok]; pred <- pred[ok]
+  tp <- sum(pred == 1 & actual == 1); fp <- sum(pred == 1 & actual == 0)
+  tn <- sum(pred == 0 & actual == 0); fn <- sum(pred == 0 & actual == 1)
+  sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
+  spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+  ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+  npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+  sc <- .cp_ci(tp, tp + fn); pc <- .cp_ci(tn, tn + fp)
+  vc <- .cp_ci(tp, tp + fp); nc <- .cp_ci(tn, tn + fn)
+  # Binary-marker AUC = (sens + spec)/2; DeLong CI when both classes present.
+  auc_v <- if (!is.na(sens) && !is.na(spec)) (sens + spec) / 2 else NA_real_
+  auc_lo <- auc_hi <- NA_real_
+  if (length(unique(pred)) == 2 && length(unique(actual)) == 2) {
+    ro <- tryCatch(roc(actual, pred, quiet = TRUE), error = function(e) NULL)
+    if (!is.null(ro)) {
+      ci <- tryCatch(as.numeric(ci.auc(ro)), error = function(e) c(NA, NA, NA))
+      auc_v <- as.numeric(auc(ro)); auc_lo <- ci[1]; auc_hi <- ci[3]
+    }
+  }
+  data.frame(
+    Condition        = label,
+    N                = tp + fp + tn + fn,
+    N_with_condition = tp + fp,
+    N_recurred       = tp + fn,
+    `AUC (95% CI)`   = .fmt3(auc_v, auc_lo, auc_hi),
+    Sensitivity      = .fmt3(sens, sc[1], sc[2]),
+    Specificity      = .fmt3(spec, pc[1], pc[2]),
+    PPV              = .fmt3(ppv,  vc[1], vc[2]),
+    NPV              = .fmt3(npv,  nc[1], nc[2]),
+    AUC_val = auc_v, AUC_lo = auc_lo, AUC_hi = auc_hi,
+    Sensitivity_val = sens, Specificity_val = spec, PPV_val = ppv, NPV_val = npv,
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
+}
+
+nice_names <- c(
+  metabolic_disorder = "Metabolic disorder",
+  metabolic_syndrome = "Metabolic syndrome",
+  hyperpth = "Hyperparathyroidism",
+  immunosuppression = "Immunosuppression",
+  transplant_immunosuppression = "Transplant immunosuppression",
+  pkd = "Polycystic kidney disease",
+  msk = "Medullary sponge kidney",
+  bowel_surgery = "Bowel surgery",
+  ibd = "Inflammatory bowel disease",
+  malabsorption = "Malabsorption",
+  sarcoidosis = "Sarcoidosis",
+  spinal_injury = "Spinal cord injury",
+  cf = "Cystic fibrosis",
+  pujo = "PUJ obstruction",
+  diverticulum = "Calyceal diverticulum",
+  ureteric_stricture = "Ureteric stricture",
+  vur = "Vesicoureteric reflux",
+  single_kidney = "Single kidney",
+  ileal_conduit = "Ileal conduit",
+  eating_disorder = "Eating disorder",
+  horshoe_kidney = "Horseshoe kidney"
+)
+
+# Build a sorted, nicely-named metrics table from a (actual + flags) dataset.
+build_condition_accuracy_table <- function(cond_df) {
+  present <- intersect(eau_risk_cols, names(cond_df))
+  lapply(present, function(cc)
+    binary_condition_metrics(cond_df$actual, as.integer(cond_df[[cc]] >= 1), cc)) %>%
+    bind_rows() %>%
+    mutate(Condition = dplyr::coalesce(unname(nice_names[Condition]), Condition)) %>%
+    arrange(desc(AUC_val))
+}
+
+render_condition_table <- function(tbl, title, subtitle) {
+  tbl %>%
+    dplyr::select(Condition, N, N_with_condition, N_recurred,
+                  `AUC (95% CI)`, Sensitivity, Specificity, PPV, NPV) %>%
+    gt() %>%
+    gt_theme_espn() %>%
+    tab_header(title = title, subtitle = subtitle) %>%
+    cols_label(N = "N analysed",
+               N_with_condition = "N with condition",
+               N_recurred = "N recurred")
+}
+
+# --- Build the per-transition datasets + tables ----------------------------
+# Naming convention: index_date = 1st event, first_date = 2nd, second_date = 3rd,
+# third_date = 4th. The matching pmhx tibble re-ascertains comorbidities as of
+# that starting event.
+cond_cfg <- list(
+  list(start = "index_date",  pmhx = pmhx_cleaned_1, key = "1to2",
+       lab = "1st → 2nd stone event"),
+  list(start = "first_date",  pmhx = pmhx_cleaned_2, key = "2to3",
+       lab = "2nd → 3rd stone event"),
+  list(start = "second_date", pmhx = pmhx_cleaned_3, key = "3to4",
+       lab = "3rd → 4th stone event"),
+  list(start = "third_date",  pmhx = pmhx_cleaned_4, key = "4to5",
+       lab = "4th → 5th stone event")
+)
+
+cond_datasets <- lapply(cond_cfg, function(cfg)
+  build_cond_dataset(cfg$start, cfg$pmhx))
+names(cond_datasets) <- vapply(cond_cfg, `[[`, character(1), "key")
+
+cond_tables <- lapply(cond_datasets, build_condition_accuracy_table)
+names(cond_tables) <- names(cond_datasets)
+
+# Pooled "any event": stack every transition-row (participant-level dependence
+# is not modelled here — each transition contributes one independent row).
+cond_pooled_ds      <- bind_rows(cond_datasets)
+cond_tables[["any"]] <- build_condition_accuracy_table(cond_pooled_ds)
+
+# Save all five tables as individual CSVs.
+for (k in names(cond_tables)) {
+  write.csv(cond_tables[[k]],
+            paste0("per_condition_accuracy_", k, ".csv"), row.names = FALSE)
+}
+
+# Combined CSV: all five tables stacked with an Analysis label column.
+cond_analysis_labels <- c("1to2" = "1st to 2nd event",
+                          "2to3" = "2nd to 3rd event",
+                          "3to4" = "3rd to 4th event",
+                          "4to5" = "4th to 5th event",
+                          "any"  = "Any event (pooled)")
+cond_combined <- bind_rows(lapply(names(cond_tables), function(k) {
+  cond_tables[[k]] %>%
+    mutate(Analysis = cond_analysis_labels[[k]], .before = 1)
+}))
+write.csv(cond_combined,
+          "per_condition_accuracy_all.csv", row.names = FALSE)
+
+cat("Per-condition accuracy tables saved for:",
+    paste(names(cond_tables), collapse = ", "),
+    "\n  + combined: per_condition_accuracy_all.csv (",
+    nrow(cond_combined), " rows)\n", sep = "")
+```
+
+### Per-Condition Accuracy — 1st to 2nd Stone Event
+
+```{r per-condition-1to2, warning=FALSE}
+render_condition_table(
+  cond_tables[["1to2"]],
+  title = "Individual EAU conditions predicting the 2nd stone event (from the 1st)",
+  subtitle = "Standalone binary classifier (condition present vs absent)"
+)
+```
+
+### Per-Condition Accuracy — 2nd to 3rd Stone Event
+
+```{r per-condition-2to3, warning=FALSE}
+render_condition_table(
+  cond_tables[["2to3"]],
+  title = "Individual EAU conditions predicting the 3rd stone event (from the 2nd)",
+  subtitle = "Standalone binary classifier (condition present vs absent)"
+)
+```
+
+### Per-Condition Accuracy — 3rd to 4th Stone Event
+
+```{r per-condition-3to4, warning=FALSE}
+render_condition_table(
+  cond_tables[["3to4"]],
+  title = "Individual EAU conditions predicting the 4th stone event (from the 3rd)",
+  subtitle = "Standalone binary classifier (condition present vs absent)"
+)
+```
+
+### Per-Condition Accuracy — 4th to 5th Stone Event
+
+```{r per-condition-4to5, warning=FALSE}
+render_condition_table(
+  cond_tables[["4to5"]],
+  title = "Individual EAU conditions predicting the 5th stone event (from the 4th)",
+  subtitle = "Standalone binary classifier (condition present vs absent)"
+)
+```
+
+### Per-Condition Accuracy — Any Event (Pooled Across Transitions)
+
+Pooled across all transitions: every participant contributes one row per
+transition they reach, with condition status re-ascertained at each transition's
+starting event. Discrimination statistics are computed on the pooled
+transition-level sample; the AUC/CI should therefore be read as a
+transition-level (not participant-level) discrimination test, as
+participant-level dependence is not modelled here.
+
+```{r per-condition-any, warning=FALSE}
+render_condition_table(
+  cond_tables[["any"]],
+  title = "Individual EAU conditions predicting the next stone event (any transition)",
+  subtitle = "Pooled across all transitions; standalone binary classifier (present vs absent)"
+)
 ```
 
 # Grid Search Helper
@@ -862,6 +1117,9 @@ cat("all_metrics_combined: ", nrow(all_metrics_combined), " rows\n", sep = "")
 # Nomenclature matches Figure 1: First/Second/Third/Fourth Event on the
 # y-axis and "No Short time" as the leftmost x column.
 heatmap_data <- all_metrics_combined %>%
+  # Keep only the 6-month-interval cutoffs (drop 9 / 15 / 21 mo) plus the
+  # no-cutoff baseline rows (Time_Cutoff_Months == NA).
+  filter(is.na(Time_Cutoff_Months) | Time_Cutoff_Months %in% c(6, 12, 18, 24)) %>%
   mutate(
     AUC_numeric = AUC_val,
     Time_Cutoff_label = ifelse(
@@ -875,11 +1133,8 @@ heatmap_data <- all_metrics_combined %>%
                                levels = c(
                                  "No Short time",
                                  "≤6mo",
-                                 "≤9mo",
                                  "≤12mo",
-                                 "≤15mo",
                                  "≤18mo",
-                                 "≤21mo",
                                  "≤24mo"
                                )),
     Starting_Point = case_when(
@@ -1066,12 +1321,13 @@ for (sp_col in c("first_date", "second_date", "third_date")) {
 }
 
 likelihood_df <- bind_rows(likelihood_rows) %>%
+  # Keep only the 6-month-interval cutoffs (drop 9 / 15 / 21 mo).
+  filter(Time_Cutoff_Months %in% c(6, 12, 18, 24)) %>%
   mutate(
     Time_Cutoff_label = paste0("\u2264", Time_Cutoff_Months, "mo"),
     Time_Cutoff_label = factor(Time_Cutoff_label,
-                               levels = c("\u22646mo", "\u22649mo", "\u226412mo",
-                                          "\u226415mo", "\u226418mo", "\u226421mo",
-                                          "\u226424mo")),
+                               levels = c("\u22646mo", "\u226412mo",
+                                          "\u226418mo", "\u226424mo")),
     Starting_Point = factor(Starting_Point,
                             levels = c("Fourth Event",
                                        "Third Event",
@@ -1586,8 +1842,8 @@ Pool all transitions together and classify participants as "high risk" based on 
 transitions_long <- transitions_long %>%
   mutate(
     recurrent_2plus = if_else(from_event_num >= 2,
-                              "High Risk (≥2 events)",
-                              "Low Risk (1 event)")
+                              "≥2 events",
+                              "1 event")
   )
 
 fit_2plus <- surv_fit(Surv(time_to_next_years, had_next_event) ~ recurrent_2plus,
@@ -1606,7 +1862,8 @@ km_2plus <- ggsurvplot(
   xlab = "Time (years)",
   ylab = "Event-free probability",
   title = "Recurrent Disease: ≥2 Previous Events vs 1 Event",
-  legend.title = "Risk Group",
+  legend.title = "Event Count",
+  legend.labs  = c("≥2 events", "1 event"),
   palette = c("#d95f02", "#1b9e77"),
   xlim = c(0, follow_up_years),
   break.time.by = 1
@@ -1615,6 +1872,60 @@ print(km_2plus)
 
 ggsave("recurrent_disease_km_2plus.pdf",
        plot = km_2plus$plot, width = 10, height = 7)
+
+# --- DCA for the same ≥2 vs 1 event classifier (Figure 3 panel C in paper) ---
+# Single binary classifier (≥2 prior events) on the long-format transitions
+# sample, with the same 5-year recurrence outcome used for the KM plot above.
+if (requireNamespace("dcurves", quietly = TRUE)) {
+  df_dca_2plus <- transitions_long %>%
+    mutate(
+      actual = case_when(
+        had_next_event == 1                                          ~ 1L,
+        had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
+        TRUE                                                          ~ NA_integer_
+      ),
+      `>=2 events` = as.integer(from_event_num >= 2)
+    ) %>%
+    drop_na(actual) %>%
+    transmute(
+      actual       = factor(actual, levels = c(0, 1)),
+      `>=2 events` = `>=2 events`
+    )
+
+  dca_2plus_obj <- dcurves::dca(
+    actual ~ `>=2 events`,
+    data       = df_dca_2plus,
+    thresholds = seq(0, 0.6, by = 0.01)
+  )
+
+  dca_2plus_data <- plot(dca_2plus_obj, smooth = FALSE)$data %>%
+    mutate(
+      label = dplyr::recode(as.character(label),
+        "Treat All"  = "Follow-up all",
+        "Treat all"  = "Follow-up all",
+        "Treat None" = "Follow-up none",
+        "Treat none" = "Follow-up none"
+      )
+    )
+
+  dca_2plus_plot <- ggplot(dca_2plus_data,
+                           aes(x = threshold, y = net_benefit, colour = label)) +
+    geom_line(linewidth = 0.8) +
+    geom_vline(xintercept = 0.2, linetype = "dashed",
+               colour = "grey40", linewidth = 0.7) +
+    xlim(c(0, 0.6)) +
+    labs(x = "Probability of Recurrence Threshold",
+         y = "Net Benefit",
+         title = "Decision Curve Analysis: ≥2 Previous Events vs 1 Event",
+         colour = NULL) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "bottom",
+          plot.title = element_text(face = "bold"))
+
+  print(dca_2plus_plot)
+  ggsave("recurrent_disease_dca_2plus.pdf",
+         plot = dca_2plus_plot, width = 10, height = 6)
+}
 
 # --- Extract 5-year KM-based recurrence rate by event-count group ---
 # This drives Figure 3 of the paper (likelihood by 1st Event vs ≥2 Events).
@@ -1646,8 +1957,8 @@ cat("KM 5-year recurrence rates (UKB):\n"); print(km_5y_df)
 transitions_long <- transitions_long %>%
   mutate(
     recurrent_3plus = if_else(from_event_num >= 3,
-                              "High Risk (≥3 events)",
-                              "Low Risk (<3 events)")
+                              "≥3 events",
+                              "<3 events")
   )
 
 fit_3plus <- surv_fit(Surv(time_to_next_years, had_next_event) ~ recurrent_3plus,
@@ -1666,8 +1977,9 @@ km_3plus <- ggsurvplot(
   xlab = "Time (years)",
   ylab = "Event-free probability",
   title = "Recurrent Disease: ≥3 Previous Events vs <3 Events",
-  legend.title = "Risk Group",
-  palette = c("#d95f02", "#1b9e77"),
+  legend.title = "Event Count",
+  legend.labs  = c("<3 events", "≥3 events"),
+  palette = c("#1b9e77", "#d95f02"),
   xlim = c(0, follow_up_years),
   break.time.by = 1
 )
@@ -1691,9 +2003,12 @@ km_short_plots <- list()
 for (cutoff in c(12, 18, 24)) {
   transitions_with_gap <- transitions_with_gap %>%
     mutate(
+      # Use simple internal labels (a_long / b_short) so the alphabetical
+      # ordering survminer uses for strata is predictable; presentation labels
+      # are supplied explicitly via legend.labs below.
       !!paste0("risk_short_", cutoff) := case_when(
-        prior_gap_months <= cutoff ~ paste0("High Risk (recurrent + gap ≤", cutoff, "mo)"),
-        TRUE ~ paste0("Recurrent (gap >", cutoff, "mo)")
+        prior_gap_months <= cutoff ~ "b_short",
+        TRUE                       ~ "a_long"
       )
     )
 
@@ -1717,8 +2032,10 @@ for (cutoff in c(12, 18, 24)) {
     xlab = "Time (years)",
     ylab = "Event-free probability",
     title = paste0("Recurrent Patients: Short Gap (≤", cutoff, " months) vs Long Gap"),
-    legend.title = "Risk Group",
-    palette = c("#d95f02", "#1b9e77"),
+    legend.title = "Between-event time",
+    legend.labs = c(paste0("Between Event time >", cutoff, "mo"),
+                    paste0("Between Event time ≤", cutoff, "mo")),
+    palette = c("#1b9e77", "#d95f02"),
     xlim = c(0, follow_up_years),
     break.time.by = 1
   )
@@ -1735,13 +2052,24 @@ for (cutoff in c(12, 18, 24)) {
 
 ```{r km-three-group, fig.width=10, fig.height=18}
 for (cutoff in c(12, 18, 24)) {
+  short_lab <- paste0("≥2 events <", cutoff, "mo apart")
+  long_lab  <- paste0("≥2 events >", cutoff, "mo apart")
+
+  # IMPORTANT: build the grouping variable as a FACTOR with explicit level
+  # order. survfit() orders strata by factor levels (deterministic), so the
+  # legend.labs/palette align with the curves. A plain character vector is
+  # sorted by locale collation — the "≥" (U+2265) glyph can sort before the
+  # digit "1", which previously mislabelled the 1-event curve as ">Nmo apart".
+  lev <- c("1 event", short_lab, long_lab)
   transitions_long <- transitions_long %>%
     mutate(
-      !!paste0("three_group_", cutoff) := case_when(
-        from_event_num == 1 ~ "First Event",
-        from_event_num >= 2 & !is.na(prior_gap_months) & prior_gap_months <= cutoff ~
-          paste0("Recurrent + Short Gap (≤", cutoff, "mo)"),
-        from_event_num >= 2 ~ paste0("Recurrent + Long Gap (>", cutoff, "mo)")
+      !!paste0("three_group_", cutoff) := factor(
+        case_when(
+          from_event_num == 1 ~ "1 event",
+          from_event_num >= 2 & !is.na(prior_gap_months) & prior_gap_months <= cutoff ~ short_lab,
+          from_event_num >= 2 ~ long_lab
+        ),
+        levels = lev
       )
     )
 
@@ -1751,6 +2079,12 @@ for (cutoff in c(12, 18, 24)) {
     as.formula(paste0("Surv(time_to_next_years, had_next_event) ~ ", risk_col)),
     data = transitions_long
   )
+
+  # Use the levels ACTUALLY present (in factor-level order) for labs + palette,
+  # so an empty group (e.g. no ">Nmo apart" at a large cutoff) can't misalign.
+  present <- levels(droplevels(transitions_long[[risk_col]]))
+  pal_map <- c("1 event" = "#1b9e77", short_lab = "#d95f02", long_lab = "#7570b3")
+  names(pal_map) <- c("1 event", short_lab, long_lab)
 
   km_3g <- ggsurvplot(
     fit_3g,
@@ -1763,9 +2097,10 @@ for (cutoff in c(12, 18, 24)) {
     risk.table.height = 0.3,
     xlab = "Time (years)",
     ylab = "Event-free probability",
-    title = paste0("Three-Group Risk: First Event vs Recurrent (Gap ≤/>", cutoff, " months)"),
-    legend.title = "Risk Group",
-    palette = c("#1b9e77", "#d95f02", "#7570b3"),
+    title = paste0("Three-Group Risk: 1 event vs ≥2 events split at ", cutoff, " months"),
+    legend.title = "Event Count",
+    legend.labs  = present,
+    palette = unname(pal_map[present]),
     xlim = c(0, follow_up_years),
     break.time.by = 1
   )
@@ -1777,7 +2112,7 @@ for (cutoff in c(12, 18, 24)) {
 }
 ```
 
-## Combined EAU + Recurrent Disease
+## Combined Baseline + Recurrent Disease
 
 Compare the enhanced definition (EAU high risk OR recurrent disease with short gap) to the EAU-only definition. We use the 12-month cutoff for the short gap definition.
 
@@ -1812,6 +2147,69 @@ transitions_long <- transitions_long %>%
     eau_risk_by_start %>% dplyr::select(participant_id, from_event_num, eau_risk = high_risk),
     by = c("participant_id", "from_event_num")
   )
+
+# ---------------------------------------------------------------------------
+# Export transitions_long for the local PRS analysis Rmd
+# (`prognostic_accuracy_with_prs.Rmd`) to consume. The CSV preserves all
+# columns the PRS analysis needs: participant_id (for joining to PRS scores),
+# transition / from_event_num / time_to_next_years / had_next_event /
+# prior_gap_months / eau_risk / follow_up_years.
+# ---------------------------------------------------------------------------
+transitions_long_export <- transitions_long %>%
+  dplyr::select(participant_id, transition, from_event_num,
+                from_date, to_date, last_date,
+                time_to_next_years, had_next_event,
+                n_previous_events, prior_gap_months, eau_risk) %>%
+  dplyr::mutate(follow_up_years = follow_up_years)
+
+write.csv(transitions_long_export, "transitions_long_ukb.csv", row.names = FALSE)
+cat("Saved: transitions_long_ukb.csv (", nrow(transitions_long_export), "rows,",
+    n_distinct(transitions_long_export$participant_id), "unique participants)\n")
+
+# ---------------------------------------------------------------------------
+# 4-group KM-derived 5-year recurrence rates: EAU risk × event count.
+# Drives main-text Figure 3 Panel A in the paper. Uses the full
+# transitions_long sample (same as the existing 2-group fit_2plus); each
+# participant contributes one row per transition reached, so a patient who
+# was EAU-low at their 1st event and EAU-high at their 2nd event correctly
+# moves between groups.
+# ---------------------------------------------------------------------------
+transitions_long <- transitions_long %>%
+  mutate(
+    eau_x_count = case_when(
+      eau_risk == "high_risk" & from_event_num >= 2 ~ "EAU High & ≥2 events",
+      eau_risk == "high_risk" & from_event_num <  2 ~ "EAU High & 1 event",
+      eau_risk == "low_risk"  & from_event_num >= 2 ~ "EAU Low & ≥2 events",
+      eau_risk == "low_risk"  & from_event_num <  2 ~ "EAU Low & 1 event",
+      TRUE ~ NA_character_
+    )
+  )
+
+fit_eau_x_count <- surv_fit(
+  Surv(time_to_next_years, had_next_event) ~ eau_x_count,
+  data = transitions_long %>% filter(!is.na(eau_x_count))
+)
+
+km_5y_eauxc_summary <- summary(fit_eau_x_count, times = follow_up_years, extend = TRUE)
+km_5y_eauxc_df <- data.frame(
+  Group        = sub("eau_x_count=", "", as.character(km_5y_eauxc_summary$strata)),
+  N_at_risk    = km_5y_eauxc_summary$n.risk,
+  N_events     = km_5y_eauxc_summary$n.event,
+  surv_5y      = km_5y_eauxc_summary$surv,
+  surv_lo_5y   = km_5y_eauxc_summary$lower,
+  surv_hi_5y   = km_5y_eauxc_summary$upper
+) %>%
+  mutate(
+    rec_5y_pct    = (1 - surv_5y) * 100,
+    rec_5y_lo_pct = (1 - surv_hi_5y) * 100,
+    rec_5y_hi_pct = (1 - surv_lo_5y) * 100,
+    Cohort        = "UKB"
+  )
+
+write.csv(km_5y_eauxc_df,
+          "km_5y_recurrence_by_eau_and_event_count.csv", row.names = FALSE)
+cat("Saved: km_5y_recurrence_by_eau_and_event_count.csv\n")
+print(km_5y_eauxc_df)
 
 # Define combined risk using 12-month cutoff
 transitions_long <- transitions_long %>%
@@ -1851,6 +2249,8 @@ km_eau <- ggsurvplot(
   ylab = "Event-free probability",
   title = "EAU Risk Classification Only (Pooled Transitions)",
   legend.title = "Risk Group",
+  # Strata sort alphabetically: "EAU High Risk" < "Low Risk"
+  legend.labs  = c("EAU High Risk", "EAU Low Risk"),
   palette = c("#d95f02", "#1b9e77"),
   xlim = c(0, follow_up_years),
   break.time.by = 1
@@ -1875,6 +2275,8 @@ km_combined <- ggsurvplot(
   ylab = "Event-free probability",
   title = "Combined Risk: EAU OR Recurrent Disease (≥2 events + gap ≤12mo)",
   legend.title = "Risk Group",
+  # Strata sort alphabetically: "High Risk (...)" < "Low Risk"
+  legend.labs  = c("EAU high or ≥2 events <12mo apart", "Low Risk"),
   palette = c("#d95f02", "#1b9e77"),
   xlim = c(0, follow_up_years),
   break.time.by = 1
@@ -1907,6 +2309,13 @@ km_four <- ggsurvplot(
   ylab = "Event-free probability",
   title = "Four-Group Risk Breakdown: EAU × Recurrent Disease (12mo cutoff)",
   legend.title = "Risk Group",
+  # Strata alphabetical order:
+  #   "EAU High + Recurrent Short Gap" < "EAU High Only"
+  #   < "Low Risk" < "Recurrent Short Gap Only"
+  legend.labs = c("EAU High + ≥2 events <12mo apart",
+                  "EAU High only",
+                  "Low Risk",
+                  "≥2 events <12mo apart only"),
   palette = c("#e7298a", "#d95f02", "#7570b3", "#1b9e77"),
   xlim = c(0, follow_up_years),
   break.time.by = 1
@@ -1956,8 +2365,8 @@ cat("\nRecurrent Disease Definition section complete.\n")
 
 For each of the 7 gap cutoffs, we evaluate two risk classifiers per transition type:
 
-- **EAU Only**: EAU high-risk factors (including age < 25)
-- **EAU + Recurrent Disease**: EAU high-risk + ≥2 previous events
+- **Baseline**: EAU high-risk factors (including age < 25)
+- **Baseline + Recurrent Disease**: EAU high-risk + ≥2 previous events
 
 Each transition is analysed separately to avoid repeated-measures confounding.
 
@@ -2001,9 +2410,9 @@ for (tr in levels(transitions_long$transition)) {
   roc_list <- list()
   roc_overlay_df <- data.frame()
 
-  for (risk_def in c("EAU Only", "EAU + Recurrent Disease")) {
+  for (risk_def in c("Baseline", "Baseline + Recurrent Disease")) {
 
-    risk_col <- if (risk_def == "EAU Only") "risk_eau" else "risk_combined"
+    risk_col <- if (risk_def == "Baseline") "risk_eau" else "risk_combined"
 
     rd <- tl %>%
       mutate(
@@ -2046,11 +2455,11 @@ for (tr in levels(transitions_long$transition)) {
   }
 
   # --- DeLong test ---
-  if (all(c("EAU Only", "EAU + Recurrent Disease") %in% names(roc_list))) {
+  if (all(c("Baseline", "Baseline + Recurrent Disease") %in% names(roc_list))) {
 
     delong_test <- roc.test(
-      roc_list[["EAU Only"]],
-      roc_list[["EAU + Recurrent Disease"]],
+      roc_list[["Baseline"]],
+      roc_list[["Baseline + Recurrent Disease"]],
       method = "delong"
     )
 
@@ -2141,7 +2550,7 @@ rec_metrics_df_no_time_cut_off <- bind_rows(rec_metrics_list) %>%
     Transition = factor(Transition,
                         levels = c("1\u21922", "2\u21923", "3\u21924", "4\u21925")),
     Risk_Definition = factor(Risk_Definition,
-                             levels = c("EAU Only", "EAU + Recurrent Disease"))
+                             levels = c("Baseline", "Baseline + Recurrent Disease"))
   ) %>%
   left_join(rec_delong_df, by = "Transition") %>%
   mutate(
@@ -2183,7 +2592,7 @@ rec_metrics_df_no_time_cut_off %>%
                 AUC, delong_p_fmt, Sensitivity, Specificity, PPV, NPV) %>%
   arrange(Transition, Risk_Definition) %>%
   gt() %>%
-  tab_header(title = "Prognostic Accuracy: Recurrent Disease Classifier vs EAU Only") %>%
+  tab_header(title = "Prognostic Accuracy: Recurrent Disease Classifier vs Baseline") %>%
   gt_theme_espn()
 ```
 
@@ -2214,8 +2623,8 @@ cat("Recurrent disease metrics CSV saved.\n")
 
 For each of the 7 gap cutoffs, we evaluate two risk classifiers per transition type:
 
-- **EAU Only**: EAU high-risk factors (including age < 25)
-- **EAU + Recurrent Disease**: EAU high-risk OR (≥2 previous events AND prior inter-event gap ≤ cutoff)
+- **Baseline**: EAU high-risk factors (including age < 25)
+- **Baseline + Recurrent Disease**: EAU high-risk OR (≥2 previous events AND prior inter-event gap ≤ cutoff)
 
 Each transition is analysed separately to avoid repeated-measures confounding.
 
@@ -2247,8 +2656,8 @@ for (cutoff in time_cutoffs_months) {
         has_next_event        = had_next_event
       )
 
-    for (risk_def in c("EAU Only", "EAU + Recurrent Disease")) {
-      risk_col <- if (risk_def == "EAU Only") "risk_eau" else "risk_combined_cut"
+    for (risk_def in c("Baseline", "Baseline + Recurrent Disease")) {
+      risk_col <- if (risk_def == "Baseline") "risk_eau" else "risk_combined_cut"
 
       roc_data <- tl %>%
         mutate(
@@ -2279,10 +2688,17 @@ for (cutoff in time_cutoffs_months) {
     if (cutoff == 12) {
       tl12 <- tl
 
-      # --- ROC: overlay EAU Only vs Combined ---
+      # --- ROC: overlay Baseline vs Combined ---
+      # Builds both the curve overlay AND a small inset AUC (95% CI) table
+      # (parallel to the per-event `generate_roc_plot_grid()` output \u2014
+      # previously this per-transition ROC plot had no inset).
       roc_overlay_df <- data.frame()
-      for (risk_def in c("EAU Only", "EAU + Recurrent Disease")) {
-        risk_col <- if (risk_def == "EAU Only") "risk_eau" else "risk_combined_cut"
+      auc_inset_df   <- data.frame(Recurrence = character(),
+                                   `AUC (95% CI)` = character(),
+                                   check.names = FALSE,
+                                   stringsAsFactors = FALSE)
+      for (risk_def in c("Baseline", "Baseline + Recurrent Disease")) {
+        risk_col <- if (risk_def == "Baseline") "risk_eau" else "risk_combined_cut"
         rd <- tl12 %>%
           mutate(
             actual    = case_when(
@@ -2293,33 +2709,48 @@ for (cutoff in time_cutoffs_months) {
             predicted = if_else(!!sym(risk_col) == "high_risk", 1, 0)
           ) %>% drop_na(actual, predicted)
         if (nrow(rd) < 10 || length(unique(rd$actual)) < 2) next
-        ro <- roc(rd$actual, rd$predicted, quiet = TRUE)
-        auc_val <- round(as.numeric(auc(ro)), 3)
+        ro     <- roc(rd$actual, rd$predicted, quiet = TRUE)
+        auc_v  <- as.numeric(auc(ro))
+        auc_ci <- ci.auc(ro)
         roc_overlay_df <- rbind(roc_overlay_df, data.frame(
           fpr        = 1 - ro$specificities,
           tpr        = ro$sensitivities,
-          Definition = paste0(risk_def, " (AUC=", auc_val, ")")
+          Definition = risk_def
         ))
+        auc_inset_df <- rbind(auc_inset_df,
+          data.frame(Recurrence = risk_def,
+                     `AUC (95% CI)` = sprintf("%.2f (%.2f\u2013%.2f)",
+                                              auc_v, auc_ci[1], auc_ci[3]),
+                     check.names = FALSE,
+                     stringsAsFactors = FALSE))
       }
       if (nrow(roc_overlay_df) > 0) {
+        auc_table_grob <- tableGrob(auc_inset_df, rows = NULL,
+                                    theme = ttheme_minimal(base_size = 7))
+        auc_inset_boxed <- grobTree(
+          rectGrob(gp = gpar(col = "black", fill = "white", lwd = 1)),
+          auc_table_grob
+        )
         p_roc <- ggplot(roc_overlay_df, aes(x = fpr, y = tpr, colour = Definition)) +
           geom_line(linewidth = 1) +
           geom_abline(linetype = "dashed", alpha = 0.5) +
           coord_equal() +
           labs(x = "False Positive Rate", y = "True Positive Rate",
-               title = paste0("ROC: Transition ", tr, " (gap \u2264 12mo)"),
-               colour = "Risk Definition") +
+               title  = paste0("ROC: Transition ", tr, " (gap \u2264 12mo)"),
+               colour = "Recurrence definition") +
           scale_colour_manual(values = c(
-            grep("EAU Only",             unique(roc_overlay_df$Definition), value=TRUE),
-            grep("EAU \\+ Recurrent",    unique(roc_overlay_df$Definition), value=TRUE)
-          ) %>% setNames(c("#7570b3", "#d95f02"), .) %>% rev()) +
+            "Baseline"                = "#7570b3",
+            "Baseline + Recurrent Disease" = "#d95f02")) +
           theme_bw(base_size = 12) +
-          theme(legend.position = "bottom")
+          theme(legend.position = "bottom") +
+          annotation_custom(grob = auc_inset_boxed,
+                            xmin = 0.40, xmax = 1.00,
+                            ymin = 0.04, ymax = 0.28)
         safe_tr <- gsub("\u2192", "to", tr)
         rec_roc_plots[[paste0("transition_", safe_tr, "_cutoff_12")]] <- p_roc
       }
 
-      # --- KM: EAU + Recurrent Disease combined risk ---
+      # --- KM: Baseline + Recurrent Disease combined risk ---
       tl_km <- tl12 %>%
         rename(risk_group = risk_combined_cut) %>%
         filter(!is.na(time_to_next_years), !is.na(risk_group))
@@ -2335,7 +2766,7 @@ for (cutoff in time_cutoffs_months) {
           surv.median.line = "hv", break.time.by = 1,
           xlab = "Time (years)", xlim = c(0, follow_up_years),
           title = paste0("KM: Transition ", tr,
-                         " – EAU + Recurrent Disease (gap \u2264 12mo)"),
+                         " – Baseline + Recurrent Disease (gap \u2264 12mo)"),
           pval.size = 4,
           legend.title = "Risk Status",
           legend.labs = c("High Risk", "Low Risk"),
@@ -2346,7 +2777,7 @@ for (cutoff in time_cutoffs_months) {
         rec_km_plots[[paste0("transition_", safe_tr, "_cutoff_12")]] <- km_p
       }
 
-      # --- DCA: EAU + Recurrent Disease ---
+      # --- DCA: Baseline + Recurrent Disease ---
       tl_dca <- tl12 %>%
         mutate(
           actual       = as.integer(had_next_event == 1),
@@ -2361,7 +2792,7 @@ for (cutoff in time_cutoffs_months) {
           geom_line(linewidth = 0.8) +
           labs(x = "Probability Threshold", y = "Net Benefit", colour = NULL,
                title = paste0("DCA: Transition ", tr,
-                              " – EAU + Recurrent Disease (gap \u2264 12mo)")) +
+                              " – Baseline + Recurrent Disease (gap \u2264 12mo)")) +
           theme_bw(base_size = 12) +
           theme(legend.position = "bottom") +
           xlim(c(0, 0.6)) +
@@ -2374,15 +2805,17 @@ for (cutoff in time_cutoffs_months) {
 }
 
 rec_metrics_df <- bind_rows(rec_metrics_list) %>%
+  # Keep only the 6-month-interval cutoffs (drop 9 / 15 / 21 mo).
+  filter(Time_Cutoff_Months %in% c(6, 12, 18, 24)) %>%
   mutate(
     Time_Cutoff_label = paste0("\u2264", Time_Cutoff_Months, "mo"),
     Time_Cutoff_label = factor(Time_Cutoff_label,
-      levels = c("\u22646mo", "\u22649mo", "\u226412mo",
-                 "\u226415mo", "\u226418mo", "\u226421mo", "\u226424mo")),
+      levels = c("\u22646mo", "\u226412mo",
+                 "\u226418mo", "\u226424mo")),
     Transition = factor(Transition, levels = c("1\u21922", "2\u21923",
                                                "3\u21924", "4\u21925")),
     Risk_Definition = factor(Risk_Definition,
-                             levels = c("EAU Only", "EAU + Recurrent Disease"))
+                             levels = c("Baseline", "Baseline + Recurrent Disease"))
   )
 
 cat("Recurrent disease prognostic accuracy computed for",
@@ -2430,7 +2863,7 @@ rec_metrics_df %>%
                 AUC, Sensitivity, Specificity, PPV, NPV) %>%
   arrange(Transition, Time_Cutoff_label, Risk_Definition) %>%
   gt() %>%
-  tab_header(title = "Prognostic Accuracy: Recurrent Disease Classifier vs EAU Only") %>%
+  tab_header(title = "Prognostic Accuracy: Recurrent Disease Classifier vs Baseline") %>%
   gt_theme_espn()
 ```
 
@@ -2457,10 +2890,10 @@ write.csv(
 cat("Recurrent disease metrics CSV saved.\n")
 ```
 
-## Updated Heatmaps: EAU Only vs EAU + Recurrent Disease
+## Updated Heatmaps: Baseline vs Baseline + Recurrent Disease
 
 These heatmaps compare the prognostic accuracy of the EAU-only classifier against the
-combined EAU + Recurrent Disease classifier, across all transitions and inter-event time cutoffs.
+combined Baseline + Recurrent Disease classifier, across all transitions and inter-event time cutoffs.
 
 ```{r rec-heatmap-data, warning=FALSE}
 rec_hm <- rec_metrics_df %>%
@@ -2483,7 +2916,7 @@ rec_auc_heatmap <- ggplot(rec_hm,
   scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                        midpoint = med_auc_r, name = "AUC") +
   labs(x = "Gap Threshold", y = "Transition",
-       title = "AUC: EAU Only vs EAU + Recurrent Disease",
+       title = "AUC: Baseline vs Baseline + Recurrent Disease",
        subtitle = "Rows = stone event transitions; columns = inter-event gap cutoff") +
   theme_bw(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
@@ -2505,7 +2938,7 @@ rec_sens_heatmap <- ggplot(rec_hm,
   scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                        midpoint = med_sens_r, name = "Sensitivity") +
   labs(x = "Gap Threshold", y = "Transition",
-       title = "Sensitivity: EAU Only vs EAU + Recurrent Disease") +
+       title = "Sensitivity: Baseline vs Baseline + Recurrent Disease") +
   theme_bw(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         strip.text = element_text(face = "bold"),
@@ -2526,7 +2959,7 @@ rec_spec_heatmap <- ggplot(rec_hm,
   scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                        midpoint = med_spec_r, name = "Specificity") +
   labs(x = "Gap Threshold", y = "Transition",
-       title = "Specificity: EAU Only vs EAU + Recurrent Disease") +
+       title = "Specificity: Baseline vs Baseline + Recurrent Disease") +
   theme_bw(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         strip.text = element_text(face = "bold"),
@@ -2547,7 +2980,7 @@ rec_ppv_heatmap <- ggplot(rec_hm,
   scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                        midpoint = med_ppv_r, name = "PPV") +
   labs(x = "Gap Threshold", y = "Transition",
-       title = "PPV: EAU Only vs EAU + Recurrent Disease") +
+       title = "PPV: Baseline vs Baseline + Recurrent Disease") +
   theme_bw(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         strip.text = element_text(face = "bold"),
@@ -2568,7 +3001,7 @@ rec_npv_heatmap <- ggplot(rec_hm,
   scale_fill_gradient2(low = "red3", mid = "yellow", high = "#1a9850",
                        midpoint = med_npv_r, name = "NPV") +
   labs(x = "Gap Threshold", y = "Transition",
-       title = "NPV: EAU Only vs EAU + Recurrent Disease") +
+       title = "NPV: Baseline vs Baseline + Recurrent Disease") +
   theme_bw(base_size = 11) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         strip.text = element_text(face = "bold"),
@@ -2637,17 +3070,20 @@ df_whole <- transitions_long %>%
     # EAU + Short Time only (no recurrent-disease modifier)
     risk_eau_st6      = risk_eau | st6,
     risk_eau_st24     = risk_eau | st24,
-    # EAU + Recurrent Disease only (existing)
+    # Baseline + Recurrent Disease only (existing)
     risk_eau_2        = risk_eau | (from_event_num >= 2),
     risk_eau_3        = risk_eau | (from_event_num >= 3),
     risk_eau_4        = risk_eau | (from_event_num >= 4),
-    # EAU + Recurrent Disease + Short Time
+    # Baseline + Recurrent Disease + Short Time
     risk_eau_2_st6    = risk_eau_2 | st6,
     risk_eau_2_st24   = risk_eau_2 | st24,
     risk_eau_3_st6    = risk_eau_3 | st6,
     risk_eau_3_st24   = risk_eau_3 | st24,
     risk_eau_4_st6    = risk_eau_4 | st6,
-    risk_eau_4_st24   = risk_eau_4 | st24
+    risk_eau_4_st24   = risk_eau_4 | st24,
+    # Pure event-count classifier (no EAU) — drives Sup Table 3 classifier-
+    # performance rows and the new line on Sup Fig 39 / Figure 3 Panel C.
+    risk_2plus_only   = (from_event_num >= 2)
   ) %>%
   drop_na(actual, risk_eau)
 
@@ -2671,7 +3107,8 @@ classifier_specs <- tribble(
   "EAU + ≥3 events + Short Time ≤24mo",       "risk_eau_3_st24",
   "EAU + ≥4 events",                           "risk_eau_4",
   "EAU + ≥4 events + Short Time ≤6mo",        "risk_eau_4_st6",
-  "EAU + ≥4 events + Short Time ≤24mo",       "risk_eau_4_st24"
+  "EAU + ≥4 events + Short Time ≤24mo",       "risk_eau_4_st24",
+  "≥2 prior events (no EAU)",                  "risk_2plus_only"
 )
 
 # ---------------------------------------------------------------------------
@@ -2767,15 +3204,26 @@ n_total      <- nrow(df_whole)
 n_high_risk  <- sapply(classifier_specs$col, function(cn) sum(df_whole[[cn]], na.rm = TRUE))
 n_low_risk   <- n_total - n_high_risk
 
-# --- Pairwise cluster-bootstrap p-values: HC same iterations preserves cov ---
-# Two-sided p = 2 * min((#pos_diffs + 1)/(B+1), (#neg_diffs + 1)/(B+1)).
-# The +1 / (B+1) correction prevents reporting an exact 0.
+# --- Pairwise cluster-bootstrap p-values: same iterations preserves cov ---
+# Two-sided percentile p with ties (#zero) split symmetrically across the
+# two tails:
+#   p_+  = (#pos + 0.5 * #zero + 1) / (B + 1)
+#   p_-  = (#neg + 0.5 * #zero + 1) / (B + 1)
+#   p    = min(2 * min(p_+, p_-), 1)
+# This correctly returns p ≈ 1 when the two classifiers are mathematically
+# identical (every iteration's diff is 0) — without this tie-handling, the
+# original formula 2*((#pos+1)/(B+1)) collapses to ~2/(B+1) and falsely
+# reports significance when d ≡ 0.
 boot_p_diff <- function(d) {
   d <- d[is.finite(d)]
   if (length(d) < 50) return(NA_real_)
-  Bv <- length(d)
-  2 * min((sum(d > 0) + 1) / (Bv + 1),
-          (sum(d < 0) + 1) / (Bv + 1))
+  Bv      <- length(d)
+  n_pos   <- sum(d > 0)
+  n_neg   <- sum(d < 0)
+  n_zero  <- sum(d == 0)
+  p_plus  <- (n_pos + 0.5 * n_zero + 1) / (Bv + 1)
+  p_minus <- (n_neg + 0.5 * n_zero + 1) / (Bv + 1)
+  min(2 * min(p_plus, p_minus), 1)
 }
 
 # vs-EAU-only p-values for the metrics CSV
@@ -2877,13 +3325,18 @@ if (requireNamespace("dcurves", quietly = TRUE)) {
     dplyr::transmute(
       actual                 = factor(actual, levels = c(0, 1)),
       `EAU only`             = as.integer(risk_eau),
-      `EAU + ≥2 events` = as.integer(risk_eau_2),
-      `EAU + ≥3 events` = as.integer(risk_eau_3),
-      `EAU + ≥4 events` = as.integer(risk_eau_4)
+      `EAU + ≥2 events`      = as.integer(risk_eau_2),
+      `EAU + ≥3 events`      = as.integer(risk_eau_3),
+      `EAU + ≥4 events`      = as.integer(risk_eau_4),
+      # New: ≥2 prior events alone (no EAU stratification). Matches the
+      # main-text Figure 3 panel C classifier so the DCA shows what
+      # adding EAU buys on top of the pure event-count rule.
+      `≥2 events (no EAU)`   = as.integer(from_event_num >= 2)
     )
 
   dca_obj <- dcurves::dca(
-    actual ~ `EAU only` + `EAU + ≥2 events` + `EAU + ≥3 events` + `EAU + ≥4 events`,
+    actual ~ `EAU only` + `EAU + ≥2 events` + `EAU + ≥3 events` +
+             `EAU + ≥4 events` + `≥2 events (no EAU)`,
     data = df_dca,
     thresholds = seq(0, 0.8, by = 0.01)
   )
@@ -2895,7 +3348,12 @@ if (requireNamespace("dcurves", quietly = TRUE)) {
         "Treat All"  = "Follow-up all",
         "Treat all"  = "Follow-up all",
         "Treat None" = "Follow-up none",
-        "Treat none" = "Follow-up none"
+        "Treat none" = "Follow-up none",
+        "EAU only"   = "Baseline",
+        ">/=2 events (no EAU)" = ">/=2 events only",
+        "EAU + >/=2 events" = "Baseline + >/=2 events",
+        "EAU + >/=3 events" = "Baseline + >/=3 events",
+        "EAU + >/=4 events" = "Baseline + >/=4 events",
       )
     )
 
@@ -2933,10 +3391,38 @@ Framed as prognostic accuracy: does requiring a short prior inter-event gap chan
 
 DeLong's test is used throughout on the pooled, one-row-per-participant sample.
 
-## Build the Pooled Sample (if not already present)
+## Build Analysis Samples
 
-```{r attenuate-pooled-build, warning=FALSE, message=FALSE}
-# Re-derive pooled_df to be self-contained (no-op if identical to earlier chunk)
+```{r attenuate-build, warning=FALSE, message=FALSE}
+# --- Main attenuation sample: FULL transitions_long with cluster-bootstrap ---
+# Previously we used `slice(1)` per participant (latest transition only) so
+# that DeLong tests on independent observations were valid. With the
+# patient-level cluster bootstrap introduced for the Figure 2 analyses, the
+# methodological need for that restriction has gone away, and using all
+# transitions:
+#   - matches the rest of the paper's any-event analyses (Figure 2,
+#     Sup Table 4, etc.)
+#   - uses more data \u2192 narrower CIs
+#   - avoids the participant-weighting issue (latest-transition gives each
+#     participant equal weight; full transitions gives each transition
+#     equal weight \u2014 appropriate when the question is about classifying
+#     encounters rather than people)
+df_atten <- transitions_long %>%
+  mutate(actual = case_when(
+    had_next_event == 1                                          ~ 1L,
+    had_next_event == 0 & time_to_next_years >= follow_up_years ~ 0L,
+    TRUE                                                          ~ NA_integer_
+  )) %>%
+  drop_na(actual)
+
+cat("Attenuation sample (full transitions_long):\n",
+    "  N transition-rows:", nrow(df_atten), "\n",
+    "  N unique participants:", n_distinct(df_atten$participant_id), "\n",
+    "  Event rate:", round(mean(df_atten$actual) * 100, 1), "%\n", sep = "")
+
+# --- pooled_df (latest-transition slice) retained for the subgroup test
+# downstream, which asks a different conceptual question (does \u22652 events
+# still inform within the long-gap subgroup at the patient level?)
 pooled_df <- transitions_long %>%
   mutate(usable = case_when(
     had_next_event == 1 ~ TRUE,
@@ -2953,13 +3439,40 @@ pooled_df <- transitions_long %>%
     TRUE ~ NA_integer_)) %>%
   drop_na(actual)
 
-cat("Pooled N =", nrow(pooled_df), "\n")
+cat("Subgroup sample (latest-transition slice for sensitivity analysis):\n",
+    "  N =", nrow(pooled_df), "\n", sep = "")
 ```
 
-## Three Classifiers + DeLong at Each Gap Cutoff
+## Three Classifiers + Cluster-Bootstrap at Each Gap Cutoff
 
-```{r attenuate-delong-sweep, warning=FALSE, message=FALSE}
+```{r attenuate-cboot-sweep, warning=FALSE, message=FALSE}
 gap_cutoffs <- c(12, 18, 24)
+B_ATTEN     <- 1000   # cluster-bootstrap iterations
+
+# Closed-form binary metrics
+.fast_metrics_atten <- function(actual, predicted) {
+  pos <- actual == 1L; pp <- predicted == 1L
+  tp <- sum(pos & pp);  fp <- sum(!pos & pp)
+  tn <- sum(!pos & !pp); fn <- sum(pos & !pp)
+  n_pos <- tp + fn; n_neg <- fp + tn
+  sens <- if (n_pos > 0) tp / n_pos else NA_real_
+  spec <- if (n_neg > 0) tn / n_neg else NA_real_
+  ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+  npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+  auc  <- if (n_pos > 0 && n_neg > 0) 0.5 * (sens + spec) else NA_real_
+  c(auc = auc, sens = sens, spec = spec, ppv = ppv, npv = npv)
+}
+
+# Symmetric-tie-handling cluster-bootstrap p
+.boot_p_diff_atten <- function(d) {
+  d <- d[is.finite(d)]
+  if (length(d) < 50) return(NA_real_)
+  Bv <- length(d)
+  n_pos <- sum(d > 0); n_neg <- sum(d < 0); n_zero <- sum(d == 0)
+  p_plus  <- (n_pos  + 0.5 * n_zero + 1) / (Bv + 1)
+  p_minus <- (n_neg  + 0.5 * n_zero + 1) / (Bv + 1)
+  min(2 * min(p_plus, p_minus), 1)
+}
 
 attenuate_metrics_list <- list()
 attenuate_delong_list  <- list()
@@ -2967,99 +3480,136 @@ attenuate_roc_plots    <- list()
 
 for (cutoff in gap_cutoffs) {
 
-  df_c <- pooled_df %>%
+  df_c <- df_atten %>%
     mutate(
-      any_rec    = as.integer(from_event_num >= 2),
-      recent_rec = as.integer(from_event_num >= 2 &
-                              !is.na(prior_gap_months) &
-                              prior_gap_months <= cutoff),
+      any_rec     = as.integer(from_event_num >= 2),
+      recent_rec  = as.integer(from_event_num >= 2 &
+                                !is.na(prior_gap_months) &
+                                prior_gap_months <= cutoff),
       distant_rec = as.integer(from_event_num >= 2 &
-                               (is.na(prior_gap_months) |
-                                prior_gap_months > cutoff))
+                                (is.na(prior_gap_months) |
+                                 prior_gap_months > cutoff))
     )
 
-  ro_any     <- roc(df_c$actual, df_c$any_rec,     quiet = TRUE)
-  ro_recent  <- roc(df_c$actual, df_c$recent_rec,  quiet = TRUE)
-  ro_distant <- roc(df_c$actual, df_c$distant_rec, quiet = TRUE)
+  actual_vec <- df_c$actual
+  pred_any     <- df_c$any_rec
+  pred_recent  <- df_c$recent_rec
+  pred_distant <- df_c$distant_rec
 
-  # Helper: AUC + 95% CI
-  auc_ci <- function(ro) {
-    ci <- ci.auc(ro)
-    c(auc = as.numeric(auc(ro)),
-      lo  = as.numeric(ci[1]),
-      hi  = as.numeric(ci[3]))
+  # Point estimates
+  pt_any     <- .fast_metrics_atten(actual_vec, pred_any)
+  pt_recent  <- .fast_metrics_atten(actual_vec, pred_recent)
+  pt_distant <- .fast_metrics_atten(actual_vec, pred_distant)
+
+  # Patient-level cluster bootstrap
+  set.seed(42)
+  pid_int     <- as.integer(factor(df_c$participant_id))
+  unique_pids <- seq_len(max(pid_int))
+  pid_to_rows <- split(seq_len(nrow(df_c)), pid_int)
+  n_pids      <- length(unique_pids)
+
+  boot_mat <- matrix(NA_real_, nrow = B_ATTEN, ncol = 15,
+                     dimnames = list(NULL, c(
+                       "any_auc","any_sens","any_spec","any_ppv","any_npv",
+                       "rec_auc","rec_sens","rec_spec","rec_ppv","rec_npv",
+                       "dis_auc","dis_sens","dis_spec","dis_ppv","dis_npv")))
+
+  for (b in seq_len(B_ATTEN)) {
+    sampled_pids <- sample.int(n_pids, n_pids, replace = TRUE)
+    rows <- unlist(pid_to_rows[sampled_pids], use.names = FALSE)
+    a <- actual_vec[rows]
+    if (length(unique(a)) < 2) next
+    m_a <- .fast_metrics_atten(a, pred_any[rows])
+    m_r <- .fast_metrics_atten(a, pred_recent[rows])
+    m_d <- .fast_metrics_atten(a, pred_distant[rows])
+    boot_mat[b, ] <- c(m_a, m_r, m_d)
   }
 
-  s_any     <- auc_ci(ro_any)
-  s_recent  <- auc_ci(ro_recent)
-  s_distant <- auc_ci(ro_distant)
+  qci <- function(v) quantile(v, c(0.025, 0.975), na.rm = TRUE)
+  ci_any     <- list(auc=qci(boot_mat[,"any_auc"]), sens=qci(boot_mat[,"any_sens"]),
+                     spec=qci(boot_mat[,"any_spec"]), ppv=qci(boot_mat[,"any_ppv"]),
+                     npv=qci(boot_mat[,"any_npv"]))
+  ci_recent  <- list(auc=qci(boot_mat[,"rec_auc"]), sens=qci(boot_mat[,"rec_sens"]),
+                     spec=qci(boot_mat[,"rec_spec"]), ppv=qci(boot_mat[,"rec_ppv"]),
+                     npv=qci(boot_mat[,"rec_npv"]))
+  ci_distant <- list(auc=qci(boot_mat[,"dis_auc"]), sens=qci(boot_mat[,"dis_sens"]),
+                     spec=qci(boot_mat[,"dis_spec"]), ppv=qci(boot_mat[,"dis_ppv"]),
+                     npv=qci(boot_mat[,"dis_npv"]))
 
-  rd_any     <- df_c %>% dplyr::rename(predicted = any_rec)
-  rd_recent  <- df_c %>% dplyr::rename(predicted = recent_rec)
-  rd_distant <- df_c %>% dplyr::rename(predicted = distant_rec)
+  fmt_ci <- function(pt, lh) sprintf("%.3f (%.3f-%.3f)", pt, lh[1], lh[2])
 
-  m_any <- extract_metrics_grid(ro_any,
-    "\u22651 subsequent stone event", rd_any) %>%
-    mutate(Gap_Cutoff_Months = cutoff,
-           Classifier = "Any recurrence (\u22652 events)")
-  m_recent <- extract_metrics_grid(ro_recent,
-    "\u22651 subsequent stone event", rd_recent) %>%
-    mutate(Gap_Cutoff_Months = cutoff,
-           Classifier = paste0("Recent recurrence (gap \u2264", cutoff, "mo)"))
-  m_distant <- extract_metrics_grid(ro_distant,
-    "\u22651 subsequent stone event", rd_distant) %>%
-    mutate(Gap_Cutoff_Months = cutoff,
-           Classifier = paste0("Distant recurrence (gap >", cutoff, "mo)"))
+  make_row <- function(label, pt, ci, predicted) {
+    data.frame(
+      Comparison = "\u22651 subsequent stone event",
+      Classifier = label,
+      Gap_Cutoff_Months = cutoff,
+      N = nrow(df_c),
+      N_High_Risk = sum(predicted == 1, na.rm = TRUE),
+      N_Low_Risk  = sum(predicted == 0, na.rm = TRUE),
+      AUC         = fmt_ci(pt["auc"],  ci$auc),
+      Sensitivity = fmt_ci(pt["sens"], ci$sens),
+      Specificity = fmt_ci(pt["spec"], ci$spec),
+      PPV         = fmt_ci(pt["ppv"],  ci$ppv),
+      NPV         = fmt_ci(pt["npv"],  ci$npv),
+      AUC_val     = unname(pt["auc"]),
+      AUC_lo      = unname(ci$auc[1]),
+      AUC_hi      = unname(ci$auc[2]),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  m_any     <- make_row("Any recurrence (\u22652 events)",       pt_any,     ci_any,     pred_any)
+  m_recent  <- make_row(paste0("Recent recurrence (gap \u2264", cutoff, "mo)"),
+                         pt_recent,  ci_recent,  pred_recent)
+  m_distant <- make_row(paste0("Distant recurrence (gap >", cutoff, "mo)"),
+                         pt_distant, ci_distant, pred_distant)
 
   attenuate_metrics_list[[paste0("cut_", cutoff)]] <-
     bind_rows(m_any, m_recent, m_distant)
 
-  # DeLong tests
-  dl_any_vs_recent  <- tryCatch(roc.test(ro_any, ro_recent,  method = "delong"),
-                                error = function(e) NULL)
-  dl_any_vs_distant <- tryCatch(roc.test(ro_any, ro_distant, method = "delong"),
-                                error = function(e) NULL)
-  dl_recent_vs_dist <- tryCatch(roc.test(ro_recent, ro_distant, method = "delong"),
-                                error = function(e) NULL)
+  # Pairwise cluster-bootstrap p-values (same iterations preserve correlation)
+  p_any_vs_recent  <- .boot_p_diff_atten(boot_mat[,"any_auc"] - boot_mat[,"rec_auc"])
+  p_any_vs_distant <- .boot_p_diff_atten(boot_mat[,"any_auc"] - boot_mat[,"dis_auc"])
+  p_recent_vs_dist <- .boot_p_diff_atten(boot_mat[,"rec_auc"] - boot_mat[,"dis_auc"])
 
+  # Column name `delong_p` retained for paper Rmd backward-compatibility;
+  # values are now cluster-bootstrap p-values.
   attenuate_delong_list[[paste0("cut_", cutoff)]] <- data.frame(
     Gap_Cutoff_Months = cutoff,
-    Comparison = c("Any vs Recent", "Any vs Distant", "Recent vs Distant"),
-    delong_p = c(
-      if (is.null(dl_any_vs_recent))  NA_real_ else as.numeric(dl_any_vs_recent$p.value),
-      if (is.null(dl_any_vs_distant)) NA_real_ else as.numeric(dl_any_vs_distant$p.value),
-      if (is.null(dl_recent_vs_dist)) NA_real_ else as.numeric(dl_recent_vs_dist$p.value)
-    )
+    Comparison        = c("Any vs Recent", "Any vs Distant", "Recent vs Distant"),
+    delong_p          = c(p_any_vs_recent, p_any_vs_distant, p_recent_vs_dist),
+    stringsAsFactors  = FALSE
   )
 
   cat(sprintf(
-    "\n--- Gap cutoff: %dmo ---\n  Any    AUC = %.3f (%.3f, %.3f)\n  Recent AUC = %.3f (%.3f, %.3f)\n  Distant AUC = %.3f (%.3f, %.3f)\n  DeLong Any vs Recent:  p = %s\n  DeLong Any vs Distant: p = %s\n  DeLong Recent vs Distant: p = %s\n",
-    cutoff,
-    s_any["auc"], s_any["lo"], s_any["hi"],
-    s_recent["auc"], s_recent["lo"], s_recent["hi"],
-    s_distant["auc"], s_distant["lo"], s_distant["hi"],
-    ifelse(is.null(dl_any_vs_recent),  "NA", format.pval(dl_any_vs_recent$p.value,  digits = 3)),
-    ifelse(is.null(dl_any_vs_distant), "NA", format.pval(dl_any_vs_distant$p.value, digits = 3)),
-    ifelse(is.null(dl_recent_vs_dist), "NA", format.pval(dl_recent_vs_dist$p.value, digits = 3))
+    "\n--- Gap cutoff: %dmo --- (cluster-bootstrap, B=%d)\n  Any    AUC = %.3f (%.3f, %.3f)\n  Recent AUC = %.3f (%.3f, %.3f)\n  Distant AUC = %.3f (%.3f, %.3f)\n  Cluster-boot Any vs Recent:    p = %s\n  Cluster-boot Any vs Distant:   p = %s\n  Cluster-boot Recent vs Distant: p = %s\n",
+    cutoff, B_ATTEN,
+    pt_any["auc"],     ci_any$auc[1],     ci_any$auc[2],
+    pt_recent["auc"],  ci_recent$auc[1],  ci_recent$auc[2],
+    pt_distant["auc"], ci_distant$auc[1], ci_distant$auc[2],
+    format.pval(p_any_vs_recent,  digits = 3),
+    format.pval(p_any_vs_distant, digits = 3),
+    format.pval(p_recent_vs_dist, digits = 3)
   ))
 
-  # ROC overlay plot
-  auc_any_r     <- round(s_any["auc"],     3)
-  auc_recent_r  <- round(s_recent["auc"],  3)
-  auc_distant_r <- round(s_distant["auc"], 3)
+  # --- ROC overlay (built on the full transitions sample, point-AUC labels) ---
+  ro_any     <- roc(df_c$actual, pred_any,     quiet = TRUE)
+  ro_recent  <- roc(df_c$actual, pred_recent,  quiet = TRUE)
+  ro_distant <- roc(df_c$actual, pred_distant, quiet = TRUE)
 
   roc_ov <- rbind(
     data.frame(fpr = 1 - ro_any$specificities,
                tpr = ro_any$sensitivities,
-               Classifier = paste0("Any recurrence (AUC=", auc_any_r, ")")),
+               Classifier = paste0("Any recurrence (AUC=",
+                                   round(pt_any["auc"], 3), ")")),
     data.frame(fpr = 1 - ro_recent$specificities,
                tpr = ro_recent$sensitivities,
-               Classifier = paste0("Recent recurrence \u2264",
-                                   cutoff, "mo (AUC=", auc_recent_r, ")")),
+               Classifier = paste0("Recent recurrence \u2264", cutoff,
+                                   "mo (AUC=", round(pt_recent["auc"], 3), ")")),
     data.frame(fpr = 1 - ro_distant$specificities,
                tpr = ro_distant$sensitivities,
-               Classifier = paste0("Distant recurrence >",
-                                   cutoff, "mo (AUC=", auc_distant_r, ")"))
+               Classifier = paste0("Distant recurrence >", cutoff,
+                                   "mo (AUC=", round(pt_distant["auc"], 3), ")"))
   )
 
   p_roc <- ggplot(roc_ov, aes(x = fpr, y = tpr, colour = Classifier)) +
@@ -3069,8 +3619,10 @@ for (cutoff in gap_cutoffs) {
     labs(x = "False Positive Rate", y = "True Positive Rate",
          title = paste0("Does the time restriction attenuate the effect? ",
                         "Gap cutoff ", cutoff, "mo"),
-         subtitle = paste0("Pooled N = ", nrow(pooled_df),
-                           " (one row per participant, latest transition)"),
+         subtitle = paste0("Full transitions sample, N=", nrow(df_c),
+                           " rows from ", n_distinct(df_c$participant_id),
+                           " participants; patient-level cluster bootstrap (B=",
+                           B_ATTEN, ")"),
          colour = "Classifier") +
     scale_colour_manual(values = c("#1b9e77", "#d95f02", "#7570b3")) +
     theme_bw(base_size = 12) +
@@ -3103,7 +3655,7 @@ attenuate_metrics_df %>%
   arrange(Gap_Cutoff_Months, Classifier) %>%
   gt() %>%
   tab_header(title = "Time-restriction attenuation test: AUC + metrics per classifier",
-             subtitle = "Pooled (one row per participant, latest transition)") %>%
+             subtitle = "Full transitions sample; cluster-bootstrap CIs (B = 1000 resampling participants)") %>%
   gt_theme_espn()
 ```
 
