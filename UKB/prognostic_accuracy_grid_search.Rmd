@@ -83,13 +83,13 @@ icd9_data <- read.csv("icd9_participant.csv",
 # Recurrence Identification
 
 ```{r identify-recurrence, message=FALSE, warning=FALSE}
-source("~/Desktop/Howles/Recurrent Kidney stones/R/Dietary Analysis/Recurrent Stones/Dietary Analysis - Recurrent Stones/recurrence_identification_colic_to_colic_multiple_occurrences.R")
+source("recurrence_identification_colic_to_colic_multiple_occurrences.R")
 ```
 
 # Past Medical History
 
 ```{r ascertain-pmhx, message=FALSE, warning=FALSE}
-source("~/Desktop/Howles/Recurrent Kidney stones/R/Recurrent KSD/pmhx_ascertainment_with_dates_and_multiple_recurrences.R")
+source("pmhx_ascertainment_with_dates_and_multiple_recurrences.R")
 ```
 
 # Build dates_detailed Object
